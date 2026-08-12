@@ -1,0 +1,45 @@
+[project]
+name = "satyascan"
+version = "0.1.0"
+description = "SatyaScan Verification Engine (SVE) - MVP"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.109,<1.0",
+    "uvicorn[standard]>=0.27,<1.0",
+    "sqlalchemy>=2.0,<2.1",
+    "aiosqlite>=0.19,<1.0",
+    "alembic>=1.13,<2.0",
+    "pydantic>=2.5,<3.0",
+    "pydantic-settings>=2.1,<3.0",
+    "structlog>=24.1,<25.0",
+    "httpx>=0.26,<1.0",
+    "chromadb>=0.4.22,<0.5",
+    "cryptography>=42.0,<43.0",
+    "python-multipart>=0.0.9,<1.0",
+]
+
+[project.optional-dependencies]
+# Heavy vendor SDKs only needed once real API keys are supplied. Kept out of
+# the base install so the mock-first dev/test loop stays fast and reliable.
+real = [
+    "google-generativeai>=0.4,<1.0",
+    "openai>=1.12,<2.0",
+    "google-cloud-vision>=3.7,<4.0",
+    "google-cloud-translate>=3.15,<4.0",
+]
+dev = [
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23,<1.0",
+    "pytest-cov>=4.1,<5.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]

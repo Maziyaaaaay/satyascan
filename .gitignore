@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Runtime data - never commit local DB, vector store, or temp media
+data/*
+!data/.gitkeep
+
+# Secrets
+.env
+*.env.local
+
+# Editor/OS
+.DS_Store
+.vscode/
+.idea/
