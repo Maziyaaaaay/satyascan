@@ -28,6 +28,15 @@ def configure_logging() -> None:
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
+
+    # chromadb 0.4.x's bundled posthog telemetry client is incompatible with
+    # newer posthog releases (capture() signature changed), so every attempt
+    # logs a "Failed to send telemetry event" error. The send always fails
+    # locally before any network call is attempted (harmless, just noisy) -
+    # anonymized_telemetry=False is also set on the client itself, but this
+    # silences the resulting error spam regardless.
+    logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.CRITICAL)
+
     _configured = True
 
 

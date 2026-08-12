@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.pipeline import run_pipeline
 from app.agents.state import PipelineState
-from app.models.enums import Channel, EvidenceType, Language, MessageDirection, VerificationStatus
+from app.logging_conf import get_logger
+from app.models.api_log import APILog
+from app.models.enums import Channel, EvidenceType, Language, MessageDirection, ProviderName, VerificationStatus
 from app.models.evidence import Evidence
 from app.models.message import EXCERPT_MAX_LEN, Message
 from app.models.mixins import utcnow
@@ -17,6 +19,9 @@ from app.models.verification import Verification
 from app.providers.bundle import Providers
 from app.security.encryption import encrypt, hash_for_lookup
 from app.services import consent_service, media_service, rate_limit_service
+from app.services.rate_limit_service import RateLimitExceeded
+
+logger = get_logger(__name__)
 
 
 async def process_incoming(
@@ -34,7 +39,11 @@ async def process_incoming(
     into a completed Verification. The WhatsApp webhook and the local
     simulator both call this identically, proving both client paths exercise
     the same internal logic."""
-    rate_limit_service.get_rate_limiter().check(external_user_id)
+    try:
+        rate_limit_service.get_rate_limiter().check(external_user_id)
+    except RateLimitExceeded:
+        logger.warning("rate_limit_exceeded", channel=channel.value)
+        raise
 
     user = await _get_or_create_user(db, channel, external_user_id, preferred_language)
 
@@ -43,6 +52,13 @@ async def process_incoming(
     )
     db.add(verification)
     await db.flush()
+    logger.info(
+        "verification_started",
+        verification_id=str(verification.id),
+        channel=channel.value,
+        has_text=text is not None,
+        has_image=image_bytes is not None,
+    )
 
     await _record_message(db, verification, channel, text, external_message_id, user)
 
@@ -65,8 +81,19 @@ async def process_incoming(
             db, image_record, state.image_analysis.ocr_text, len(state.image_analysis.reverse_matches)
         )
 
-    await _persist_pipeline_result(db, verification, state, elapsed_ms)
+    await _persist_pipeline_result(db, verification, state, elapsed_ms, providers)
+    logger.info(
+        "verification_completed",
+        verification_id=str(verification.id),
+        verdict=verification.verdict.value if verification.verdict else None,
+        confidence_score=verification.confidence_score,
+        processing_time_ms=elapsed_ms,
+    )
     return verification
+
+
+def _is_mock_provider(instance: object) -> bool:
+    return type(instance).__name__.startswith("Mock")
 
 
 async def _get_or_create_user(
@@ -132,8 +159,18 @@ async def _get_or_create_source(db: AsyncSession, url: str, domain: Optional[str
     return source
 
 
+_PROVIDER_TO_BUNDLE_ATTR = {
+    ProviderName.gemini: "llm",
+    ProviderName.openai: "llm",
+    ProviderName.google_fact_check: "fact_check",
+    ProviderName.google_vision: "image_search",
+    ProviderName.google_translate: "translation",
+    ProviderName.whatsapp: "whatsapp",
+}
+
+
 async def _persist_pipeline_result(
-    db: AsyncSession, verification: Verification, state: PipelineState, elapsed_ms: int
+    db: AsyncSession, verification: Verification, state: PipelineState, elapsed_ms: int, providers: Providers
 ) -> None:
     claim_text = state.claims[0].normalized_text if state.claims else state.input_text
     verification.claim_text = claim_text
@@ -165,6 +202,17 @@ async def _persist_pipeline_result(
                 relevance_score=evidence.relevance_score,
                 stance=evidence.stance,
                 rank=evidence.rank,
+            )
+        )
+
+    for call in state.provider_calls:
+        bundle_attr = _PROVIDER_TO_BUNDLE_ATTR[call.provider]
+        db.add(
+            APILog(
+                verification_id=verification.id,
+                provider=call.provider,
+                endpoint=call.endpoint,
+                is_mock=_is_mock_provider(getattr(providers, bundle_attr)),
             )
         )
 

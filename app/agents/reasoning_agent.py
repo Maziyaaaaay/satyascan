@@ -1,7 +1,8 @@
 from pydantic import BaseModel
 
+from app.agents._call_logging import llm_provider_name
 from app.agents.prompts import load as load_prompt
-from app.agents.state import PipelineState, ReasoningResult
+from app.agents.state import PipelineState, ProviderCallRecord, ReasoningResult
 from app.models.enums import Verdict
 from app.providers.bundle import Providers
 
@@ -30,6 +31,9 @@ def _build_user_prompt(state: PipelineState) -> str:
 async def run(state: PipelineState, providers: Providers) -> PipelineState:
     response = await providers.llm.generate(
         system_prompt=SYSTEM_PROMPT, user_prompt=_build_user_prompt(state), response_schema=_ReasoningSchema
+    )
+    state.provider_calls.append(
+        ProviderCallRecord(provider=llm_provider_name(response), endpoint="generate:reasoning_agent")
     )
     parsed = _ReasoningSchema.model_validate(response.parsed)
     certainty = min(1.0, max(0.0, parsed.certainty))

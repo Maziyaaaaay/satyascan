@@ -1,8 +1,8 @@
 from typing import Optional
 from urllib.parse import urlparse
 
-from app.agents.state import PipelineState, RankedEvidence
-from app.models.enums import Stance
+from app.agents.state import PipelineState, ProviderCallRecord, RankedEvidence
+from app.models.enums import ProviderName, Stance
 from app.providers.bundle import Providers
 from app.vectorstore.base import VectorStoreItem
 
@@ -60,6 +60,7 @@ async def run(state: PipelineState, providers: Providers) -> PipelineState:
         )
 
     embeddings = await providers.llm.embed([query_text] + evidence_texts)
+    state.provider_calls.append(ProviderCallRecord(provider=ProviderName.gemini, endpoint="embed"))
     query_embedding, evidence_embeddings = embeddings[0], embeddings[1:]
 
     # Chroma collection names must be alphanumeric/underscore/hyphen only.

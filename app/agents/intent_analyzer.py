@@ -1,5 +1,6 @@
+from app.agents._call_logging import llm_provider_name
 from app.agents.prompts import load as load_prompt
-from app.agents.state import IntentResult, PipelineState
+from app.agents.state import IntentResult, PipelineState, ProviderCallRecord
 from app.providers.bundle import Providers
 
 SYSTEM_PROMPT = load_prompt("intent_analyzer")
@@ -19,6 +20,9 @@ async def run(state: PipelineState, providers: Providers) -> PipelineState:
         system_prompt=SYSTEM_PROMPT,
         user_prompt=_build_user_prompt(state),
         response_schema=IntentResult,
+    )
+    state.provider_calls.append(
+        ProviderCallRecord(provider=llm_provider_name(response), endpoint="generate:intent_analyzer")
     )
     intent = IntentResult.model_validate(response.parsed)
     # Ground has_text_claim/has_image in what was actually received rather

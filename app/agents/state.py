@@ -3,8 +3,17 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import ConfidenceLabel, IntentType, Language, Stance, Verdict
+from app.models.enums import ConfidenceLabel, IntentType, Language, ProviderName, Stance, Verdict
 from app.providers.base import FactCheckResult, ReverseImageMatch
+
+
+class ProviderCallRecord(BaseModel):
+    """One external provider call made during this pipeline run, recorded by
+    the calling agent so verification_service can persist it as an APILog
+    row afterward - agents themselves stay DB-free and unit-testable."""
+
+    provider: ProviderName
+    endpoint: str
 
 
 class IntentResult(BaseModel):
@@ -69,3 +78,4 @@ class PipelineState(BaseModel):
     reasoning: Optional[ReasoningResult] = None
     confidence: Optional[ConfidenceResult] = None
     explanation: Optional[ExplanationResult] = None
+    provider_calls: List[ProviderCallRecord] = Field(default_factory=list)

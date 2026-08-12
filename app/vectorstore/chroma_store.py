@@ -20,8 +20,12 @@ class ChromaStore(VectorStore):
     def _get_client(self):
         if self._client is None:
             import chromadb
+            from chromadb.config import Settings as ChromaSettings
 
-            self._client = chromadb.PersistentClient(path=self._persist_dir)
+            # Privacy-first: never phone home, per Part 12's principles.
+            self._client = chromadb.PersistentClient(
+                path=self._persist_dir, settings=ChromaSettings(anonymized_telemetry=False)
+            )
         return self._client
 
     def _get_collection(self, name: str):
