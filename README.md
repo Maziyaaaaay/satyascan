@@ -40,6 +40,13 @@ pytest
 docker compose -f docker/docker-compose.yml up --build
 ```
 
+Runs migrations automatically on container start, then serves on http://localhost:8000
+(simulator at `/simulator`). Data persists in the `satyascan_data` named volume. To use real
+provider keys, uncomment and fill in the relevant `environment:` entries in
+`docker/docker-compose.yml` (see `.env.example` for the full list). To move off SQLite onto
+Postgres + pgvector later, uncomment the `db` service in the same file and point
+`DATABASE_URL` at it — the schema is already Postgres-compatible.
+
 ## Scope
 
 Built: WhatsApp webhook (Meta Cloud API) + local simulator, 8-agent verification pipeline,

@@ -1,0 +1,40 @@
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:///./data/satyascan.db
+      CHROMA_PERSIST_DIR: ./data/chroma
+      # Add real provider keys here to switch individual services from mock
+      # to live - see .env.example for the full list. Everything works with
+      # none of these set (deterministic mocks).
+      # GEMINI_API_KEY: ""
+      # WHATSAPP_ACCESS_TOKEN: ""
+      # WHATSAPP_PHONE_NUMBER_ID: ""
+      # WHATSAPP_VERIFY_TOKEN: ""
+      # WHATSAPP_APP_SECRET: ""
+    volumes:
+      - satyascan_data:/app/data
+    restart: unless-stopped
+
+  # Uncomment to move off SQLite onto a Postgres + pgvector setup. The
+  # schema (see app/db/base.py's GUID type decorator) is already
+  # Postgres-compatible - just point DATABASE_URL at this service instead
+  # of the sqlite file above.
+  # db:
+  #   image: pgvector/pgvector:pg16
+  #   environment:
+  #     POSTGRES_USER: satyascan
+  #     POSTGRES_PASSWORD: satyascan
+  #     POSTGRES_DB: satyascan
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - satyascan_pg_data:/var/lib/postgresql/data
+
+volumes:
+  satyascan_data:
+  # satyascan_pg_data:
