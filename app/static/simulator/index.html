@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SatyaScan Simulator</title>
+<link rel="stylesheet" href="/static/simulator/styles.css">
+</head>
+<body>
+  <div class="phone">
+    <header class="chat-header">
+      <div class="avatar">SS</div>
+      <div class="header-text">
+        <div class="header-title">SatyaScan</div>
+        <div class="header-subtitle">AI Verification Engine &middot; simulator</div>
+      </div>
+      <select id="language-select" title="Explanation language">
+        <option value="en">English</option>
+        <option value="ml">Malayalam</option>
+      </select>
+    </header>
+
+    <main id="chat-log" class="chat-log">
+      <div class="bubble bubble-in">
+        Forward me a message or image you'd like fact-checked. This simulator talks
+        to the same verification pipeline the real WhatsApp bot uses.
+      </div>
+    </main>
+
+    <form id="composer" class="composer">
+      <label class="attach-button" title="Attach an image">
+        📎
+        <input id="image-input" type="file" accept="image/*" hidden>
+      </label>
+      <input id="text-input" type="text" placeholder="Type or forward a message…" autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+    <div id="image-preview-row" class="image-preview-row" hidden>
+      <img id="image-preview" alt="attached image preview">
+      <button id="image-clear" type="button">✕</button>
+    </div>
+  </div>
+
+  <script src="/static/simulator/app.js"></script>
+</body>
+</html>
