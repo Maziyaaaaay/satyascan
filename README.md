@@ -12,9 +12,13 @@ docstrings/comments where non-obvious.
 
 ## Quickstart (local, no external accounts needed)
 
+Make sure you're inside this project directory first (`cd` to wherever you cloned/downloaded
+`Satyascan` — the folder containing this README and `pyproject.toml`), then:
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install -e ".[dev]"
 cp .env.example .env
 alembic upgrade head
@@ -22,6 +26,14 @@ uvicorn app.main:app --reload
 ```
 
 Then open http://localhost:8000/simulator in a browser and send a message.
+
+**If you see `ERROR: File "setup.py" or "setup.cfg" not found... cannot be installed in
+editable mode`:** your pip is older than 21.3, which can't install a pyproject.toml-only
+package in editable mode (`-e`) — `python3 -m venv` on many systems, including stock macOS
+Python, bundles an old pip by default. The `pip install --upgrade pip` line above fixes this;
+if you already have a venv without it, activate it and run that line, then retry the `-e`
+install. If the error instead names a path that isn't this project's folder (e.g. your home
+directory), it means the command ran from the wrong directory — `cd` into the project first.
 
 Everything runs on deterministic mock providers by default — no API keys required. Add real
 keys to `.env` later (see `.env.example`) to switch individual services (Gemini, OpenAI,
