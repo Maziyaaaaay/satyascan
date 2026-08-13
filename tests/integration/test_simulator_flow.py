@@ -50,6 +50,9 @@ async def test_simulator_image_message(app_client):
     assert data["explanation"]
     assert data["image_match_count"] is not None
     assert data["image_ocr_text"]
+    assert data["ai_generated_probability"] is not None
+    assert 0.0 <= data["ai_generated_probability"] <= 1.0
+    assert data["ai_generated_reasoning"]
 
 
 @pytest.mark.asyncio

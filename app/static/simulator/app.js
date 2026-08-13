@@ -110,6 +110,25 @@
         ocr.textContent = "Text detected in image: “" + data.image_ocr_text + "”";
         bubble.appendChild(ocr);
       }
+
+      if (typeof data.ai_generated_probability === "number") {
+        const pct = Math.round(data.ai_generated_probability * 100);
+        const likely = data.ai_generated_probability >= 0.5;
+
+        const aiBadge = document.createElement("div");
+        aiBadge.className = "ai-detection-badge " + (likely ? "ai-detection-likely" : "ai-detection-unlikely");
+        aiBadge.textContent = likely
+          ? `🤖 Likely AI-generated (${pct}%)`
+          : `📷 Unlikely to be AI-generated (${pct}%)`;
+        bubble.appendChild(aiBadge);
+
+        if (data.ai_generated_reasoning) {
+          const aiReason = document.createElement("div");
+          aiReason.className = "result-image-summary ai-detection-reasoning";
+          aiReason.textContent = data.ai_generated_reasoning;
+          bubble.appendChild(aiReason);
+        }
+      }
     }
 
     if (data.sources && data.sources.length) {

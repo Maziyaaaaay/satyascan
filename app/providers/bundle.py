@@ -1,6 +1,13 @@
 from dataclasses import dataclass
 
-from app.providers.base import FactCheckProvider, ImageSearchProvider, LLMProvider, TranslationProvider, WhatsAppClient
+from app.providers.base import (
+    AIImageDetectionProvider,
+    FactCheckProvider,
+    ImageSearchProvider,
+    LLMProvider,
+    TranslationProvider,
+    WhatsAppClient,
+)
 from app.vectorstore.base import VectorStore
 
 
@@ -13,6 +20,7 @@ class Providers:
     llm: LLMProvider
     fact_check: FactCheckProvider
     image_search: ImageSearchProvider
+    ai_detection: AIImageDetectionProvider
     translation: TranslationProvider
     whatsapp: WhatsAppClient
     vectorstore: VectorStore
@@ -21,6 +29,7 @@ class Providers:
 def build_providers() -> Providers:
     from app.config import get_settings
     from app.providers.factory import (
+        get_ai_detection_provider,
         get_fact_check_provider,
         get_image_search_provider,
         get_llm_provider,
@@ -34,6 +43,7 @@ def build_providers() -> Providers:
         llm=get_llm_provider(),
         fact_check=get_fact_check_provider(),
         image_search=get_image_search_provider(),
+        ai_detection=get_ai_detection_provider(),
         translation=get_translation_provider(),
         whatsapp=get_whatsapp_client(),
         vectorstore=ChromaStore(persist_dir=settings.chroma_persist_dir),
@@ -43,6 +53,7 @@ def build_providers() -> Providers:
 def build_mock_providers() -> Providers:
     """Convenience constructor for tests: every provider forced to its Mock
     implementation regardless of env vars."""
+    from app.providers.ai_detection.mock import MockAIImageDetectionProvider
     from app.providers.fact_check.mock import MockFactCheckProvider
     from app.providers.image_search.mock import MockImageSearchProvider
     from app.providers.llm.mock import MockLLMProvider
@@ -55,6 +66,7 @@ def build_mock_providers() -> Providers:
         llm=MockLLMProvider(),
         fact_check=MockFactCheckProvider(),
         image_search=MockImageSearchProvider(),
+        ai_detection=MockAIImageDetectionProvider(),
         translation=MockTranslationProvider(),
         whatsapp=MockWhatsAppClient(),
         vectorstore=ChromaStore(persist_dir=tempfile.mkdtemp()),

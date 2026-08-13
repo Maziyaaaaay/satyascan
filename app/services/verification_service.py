@@ -78,7 +78,12 @@ async def process_incoming(
 
     if image_record is not None and state.image_analysis is not None:
         await media_service.finalize_image_summary(
-            db, image_record, state.image_analysis.ocr_text, len(state.image_analysis.reverse_matches)
+            db,
+            image_record,
+            state.image_analysis.ocr_text,
+            len(state.image_analysis.reverse_matches),
+            ai_generated_probability=state.image_analysis.ai_generated_probability,
+            ai_generated_reasoning=state.image_analysis.ai_generated_reasoning,
         )
 
     await _persist_pipeline_result(db, verification, state, elapsed_ms, providers)
@@ -164,6 +169,7 @@ _PROVIDER_TO_BUNDLE_ATTR = {
     ProviderName.openai: "llm",
     ProviderName.google_fact_check: "fact_check",
     ProviderName.google_vision: "image_search",
+    ProviderName.sightengine: "ai_detection",
     ProviderName.google_translate: "translation",
     ProviderName.whatsapp: "whatsapp",
 }

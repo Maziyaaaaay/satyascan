@@ -77,6 +77,7 @@ class ProviderName(str, enum.Enum):
     google_fact_check = "google_fact_check"
     google_vision = "google_vision"
     google_translate = "google_translate"
+    sightengine = "sightengine"
     whatsapp = "whatsapp"
 
 

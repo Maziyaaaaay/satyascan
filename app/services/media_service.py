@@ -3,7 +3,7 @@ from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.image import Image
+from app.models.image import AI_REASONING_MAX_LEN, Image
 from app.models.mixins import utcnow
 from app.models.verification import Verification
 
@@ -23,8 +23,15 @@ async def record_image_metadata(db: AsyncSession, verification: Verification, im
 
 
 async def finalize_image_summary(
-    db: AsyncSession, image: Image, ocr_text: Optional[str], match_count: int
+    db: AsyncSession,
+    image: Image,
+    ocr_text: Optional[str],
+    match_count: int,
+    ai_generated_probability: Optional[float] = None,
+    ai_generated_reasoning: Optional[str] = None,
 ) -> None:
     image.ocr_text_excerpt = (ocr_text or "")[:OCR_EXCERPT_MAX_LEN] or None
     image.reverse_search_match_count = match_count
+    image.ai_generated_probability = ai_generated_probability
+    image.ai_generated_reasoning = (ai_generated_reasoning or "")[:AI_REASONING_MAX_LEN] or None
     await db.flush()

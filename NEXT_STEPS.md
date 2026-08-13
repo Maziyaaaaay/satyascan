@@ -43,7 +43,27 @@ explanation) switches from mock to real Gemini calls automatically — no code c
 2. Reuse or create an API key.
 3. `.env`: `GOOGLE_TRANSLATE_API_KEY=...`
 
-## 5. WhatsApp — Meta Cloud API (the actual bot)
+## 5. Sightengine (AI-generated image detection)
+
+Added on request — detects whether an image itself was AI-generated (deepfake/synthetic),
+separate from the reverse-image-search/OCR that Google Vision already does.
+
+1. Create an account at [sightengine.com](https://sightengine.com) and find your **API User**
+   and **API Secret** on the dashboard.
+2. `.env`:
+   ```
+   SIGHTENGINE_API_USER=...
+   SIGHTENGINE_API_SECRET=...
+   ```
+3. **Verify the adapter once you have credentials.** `app/providers/ai_detection/
+   sightengine.py` was written against Sightengine's documented `genai` model response shape
+   (`type.ai_generated` as a 0–1 score), but was never tested against a live account — no
+   credentials were available during development. Send one real image through the simulator
+   with the key set, check the `images` table's `ai_generated_probability`/
+   `ai_generated_reasoning` columns came back sensible, and fix the field path in that file if
+   Sightengine's actual response shape differs.
+
+## 6. WhatsApp — Meta Cloud API (the actual bot)
 
 1. Create a [Meta developer account](https://developers.facebook.com) and a new App.
 2. Add the **WhatsApp** product to the app. This gives you a test phone number, a temporary
@@ -70,7 +90,7 @@ explanation) switches from mock to real Gemini calls automatically — no code c
 8. Send a WhatsApp message to your test number — it should hit your running server and reply
    with a verdict.
 
-## 6. Security / production settings
+## 7. Security / production settings
 
 - Generate a real encryption key (the app runs on a throwaway dev key otherwise, which breaks
   on every restart):
@@ -81,7 +101,7 @@ explanation) switches from mock to real Gemini calls automatically — no code c
 - Decide `MESSAGE_RETENTION_DAYS` if you want any message excerpt retained for consenting
   users (`0` = never, matches the privacy-first default).
 
-## 7. Docker
+## 8. Docker
 
 Docker wasn't installed on the machine this was built on, so `docker compose up --build` was
 never actually run end-to-end — only checked by inspection. Install
@@ -92,7 +112,7 @@ docker compose -f docker/docker-compose.yml up --build
 Please run this yourself and report back if it fails — the Dockerfile/compose config should
 work but hasn't been build-tested on a real Docker install.
 
-## 8. Deploying for real
+## 9. Deploying for real
 
 No specific host was chosen as part of this build. Pick one that can run the Docker image and
 give you a public HTTPS URL — Railway, Render, Fly.io, a VPS, or AWS/GCP all work. Once live:
@@ -101,7 +121,7 @@ give you a public HTTPS URL — Railway, Render, Fly.io, a VPS, or AWS/GCP all w
   `docker/docker-compose.yml` and point `DATABASE_URL` at it — the schema (see
   `app/db/base.py`'s `GUID` type) is already Postgres-compatible, no migration rewrite needed.
 
-## 9. Verifying real calls are actually happening
+## 10. Verifying real calls are actually happening
 
 Every external call is recorded in the `api_logs` table with an `is_mock` flag. After adding a
 key and sending a test message, check:

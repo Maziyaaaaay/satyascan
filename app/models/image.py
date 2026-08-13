@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import GUID, Base
@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.models.verification import Verification
 
 OCR_EXCERPT_MAX_LEN = 500
+AI_REASONING_MAX_LEN = 500
 
 
 class Image(Base, UUIDPKMixin, TimestampMixin):
@@ -33,5 +34,7 @@ class Image(Base, UUIDPKMixin, TimestampMixin):
     mime_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     ocr_text_excerpt: Mapped[Optional[str]] = mapped_column(String(OCR_EXCERPT_MAX_LEN), nullable=True)
     reverse_search_match_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    ai_generated_probability: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    ai_generated_reasoning: Mapped[Optional[str]] = mapped_column(String(AI_REASONING_MAX_LEN), nullable=True)
 
     verification: Mapped["Verification"] = relationship(back_populates="images")

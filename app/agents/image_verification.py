@@ -15,5 +15,13 @@ async def run(state: PipelineState, providers: Providers) -> PipelineState:
         ProviderCallRecord(provider=ProviderName.google_vision, endpoint="reverse_image_search")
     )
 
-    state.image_analysis = ImageAnalysisResult(ocr_text=ocr_result.text, reverse_matches=matches)
+    ai_detection = await providers.ai_detection.detect(state.input_image_bytes)
+    state.provider_calls.append(ProviderCallRecord(provider=ProviderName.sightengine, endpoint="detect"))
+
+    state.image_analysis = ImageAnalysisResult(
+        ocr_text=ocr_result.text,
+        reverse_matches=matches,
+        ai_generated_probability=ai_detection.ai_generated_probability,
+        ai_generated_reasoning=ai_detection.reasoning,
+    )
     return state

@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     google_cloud_vision_api_key: Optional[str] = None
     google_translate_api_key: Optional[str] = None
 
+    sightengine_api_user: Optional[str] = None
+    sightengine_api_secret: Optional[str] = None
+
     whatsapp_access_token: Optional[str] = None
     whatsapp_phone_number_id: Optional[str] = None
     whatsapp_verify_token: Optional[str] = None

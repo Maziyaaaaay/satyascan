@@ -35,6 +35,8 @@ class SearchResult(BaseModel):
 class ImageAnalysisResult(BaseModel):
     ocr_text: Optional[str] = None
     reverse_matches: List[ReverseImageMatch] = Field(default_factory=list)
+    ai_generated_probability: Optional[float] = None
+    ai_generated_reasoning: Optional[str] = None
 
 
 class RankedEvidence(BaseModel):

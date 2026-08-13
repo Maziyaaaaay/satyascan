@@ -30,6 +30,12 @@ class OCRResult(BaseModel):
     language_code: Optional[str] = None
 
 
+class AIDetectionResult(BaseModel):
+    ai_generated_probability: float
+    is_likely_ai_generated: bool
+    reasoning: str
+
+
 class LLMProvider(ABC):
     """Text generation + embeddings. When response_schema is given,
     implementations must return a LLMResponse whose `parsed` dict validates
@@ -65,6 +71,16 @@ class ImageSearchProvider(ABC):
 
     @abstractmethod
     async def extract_text(self, image_bytes: bytes) -> OCRResult: ...
+
+
+class AIImageDetectionProvider(ABC):
+    """Detects whether an image itself was AI-generated (deepfake/synthetic
+    media) - distinct from ImageSearchProvider, which checks whether a real
+    image is being recycled/used out of context. A separate capability from
+    the original 8-agent PRD scope, added on request."""
+
+    @abstractmethod
+    async def detect(self, image_bytes: bytes) -> AIDetectionResult: ...
 
 
 class TranslationProvider(ABC):

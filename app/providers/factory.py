@@ -2,6 +2,7 @@ from functools import lru_cache
 
 from app.config import get_settings
 from app.providers.base import (
+    AIImageDetectionProvider,
     FactCheckProvider,
     ImageSearchProvider,
     LLMProvider,
@@ -60,6 +61,21 @@ def get_image_search_provider() -> ImageSearchProvider:
 
 
 @lru_cache
+def get_ai_detection_provider() -> AIImageDetectionProvider:
+    settings = get_settings()
+    if settings.sightengine_api_user and settings.sightengine_api_secret:
+        from app.providers.ai_detection.sightengine import SightengineAIDetectionProvider
+
+        return SightengineAIDetectionProvider(
+            api_user=settings.sightengine_api_user, api_secret=settings.sightengine_api_secret
+        )
+
+    from app.providers.ai_detection.mock import MockAIImageDetectionProvider
+
+    return MockAIImageDetectionProvider()
+
+
+@lru_cache
 def get_translation_provider() -> TranslationProvider:
     settings = get_settings()
     if settings.google_translate_api_key:
@@ -94,5 +110,6 @@ def reset_providers_for_tests() -> None:
     get_llm_provider.cache_clear()
     get_fact_check_provider.cache_clear()
     get_image_search_provider.cache_clear()
+    get_ai_detection_provider.cache_clear()
     get_translation_provider.cache_clear()
     get_whatsapp_client.cache_clear()

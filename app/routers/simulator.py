@@ -47,6 +47,8 @@ class SimulatorMessageResponse(BaseModel):
     sources: List[SourceInfo] = []
     image_match_count: Optional[int] = None
     image_ocr_text: Optional[str] = None
+    ai_generated_probability: Optional[float] = None
+    ai_generated_reasoning: Optional[str] = None
 
 
 @router.get("/simulator")
@@ -91,12 +93,16 @@ async def simulator_message(
 
     image_match_count: Optional[int] = None
     image_ocr_text: Optional[str] = None
+    ai_generated_probability: Optional[float] = None
+    ai_generated_reasoning: Optional[str] = None
     if verification.has_image:
         image_result = await db.execute(select(Image).where(Image.verification_id == verification.id))
         image = image_result.scalar_one_or_none()
         if image is not None:
             image_match_count = image.reverse_search_match_count
             image_ocr_text = image.ocr_text_excerpt
+            ai_generated_probability = image.ai_generated_probability
+            ai_generated_reasoning = image.ai_generated_reasoning
 
     return SimulatorMessageResponse(
         verdict=verification.verdict.value if verification.verdict else None,
@@ -107,4 +113,6 @@ async def simulator_message(
         sources=sources,
         image_match_count=image_match_count,
         image_ocr_text=image_ocr_text,
+        ai_generated_probability=ai_generated_probability,
+        ai_generated_reasoning=ai_generated_reasoning,
     )

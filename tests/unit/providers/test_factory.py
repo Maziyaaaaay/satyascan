@@ -2,6 +2,7 @@ import pytest
 
 from app.config import get_settings
 from app.providers.factory import (
+    get_ai_detection_provider,
     get_fact_check_provider,
     get_image_search_provider,
     get_llm_provider,
@@ -9,6 +10,7 @@ from app.providers.factory import (
     get_whatsapp_client,
     reset_providers_for_tests,
 )
+from app.providers.ai_detection.mock import MockAIImageDetectionProvider
 from app.providers.fact_check.mock import MockFactCheckProvider
 from app.providers.image_search.mock import MockImageSearchProvider
 from app.providers.llm.mock import MockLLMProvider
@@ -24,6 +26,8 @@ def _clean_provider_state(monkeypatch):
         "GOOGLE_FACT_CHECK_API_KEY",
         "GOOGLE_CLOUD_VISION_API_KEY",
         "GOOGLE_TRANSLATE_API_KEY",
+        "SIGHTENGINE_API_USER",
+        "SIGHTENGINE_API_SECRET",
         "WHATSAPP_ACCESS_TOKEN",
         "WHATSAPP_PHONE_NUMBER_ID",
     ]:
@@ -39,8 +43,28 @@ def test_defaults_to_mocks_with_no_env_vars_set():
     assert isinstance(get_llm_provider(), MockLLMProvider)
     assert isinstance(get_fact_check_provider(), MockFactCheckProvider)
     assert isinstance(get_image_search_provider(), MockImageSearchProvider)
+    assert isinstance(get_ai_detection_provider(), MockAIImageDetectionProvider)
     assert isinstance(get_translation_provider(), MockTranslationProvider)
     assert isinstance(get_whatsapp_client(), MockWhatsAppClient)
+
+
+def test_sightengine_requires_both_user_and_secret(monkeypatch):
+    monkeypatch.setenv("SIGHTENGINE_API_USER", "user-only")
+    get_settings.cache_clear()
+    reset_providers_for_tests()
+
+    assert isinstance(get_ai_detection_provider(), MockAIImageDetectionProvider)
+
+
+def test_sightengine_user_and_secret_selects_real_provider(monkeypatch):
+    from app.providers.ai_detection.sightengine import SightengineAIDetectionProvider
+
+    monkeypatch.setenv("SIGHTENGINE_API_USER", "user")
+    monkeypatch.setenv("SIGHTENGINE_API_SECRET", "secret")
+    get_settings.cache_clear()
+    reset_providers_for_tests()
+
+    assert isinstance(get_ai_detection_provider(), SightengineAIDetectionProvider)
 
 
 def test_gemini_key_selects_real_gemini_provider(monkeypatch):
