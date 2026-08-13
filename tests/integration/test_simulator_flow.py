@@ -48,6 +48,21 @@ async def test_simulator_image_message(app_client):
     assert response.status_code == 200
     data = response.json()
     assert data["explanation"]
+    assert data["image_match_count"] is not None
+    assert data["image_ocr_text"]
+
+
+@pytest.mark.asyncio
+async def test_simulator_response_includes_rationale_and_labeled_sources(app_client):
+    client, _ = app_client
+    response = await client.post(
+        "/simulator/message",
+        json={"session_id": "test-session-rationale", "text": "Vaccines cause the disease they prevent"},
+    )
+    data = response.json()
+    assert data["rationale"]
+    if data["sources"]:
+        assert all("url" in s and "domain" in s for s in data["sources"])
 
 
 @pytest.mark.asyncio

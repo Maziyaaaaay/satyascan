@@ -3,6 +3,8 @@ from typing import List
 
 from app.providers.base import ImageSearchProvider, OCRResult, ReverseImageMatch
 
+_MOCK_NEWS_DOMAINS = ["timesnow.example", "dailychronicle.example", "regionalnews.example"]
+
 
 class MockImageSearchProvider(ImageSearchProvider):
     """Deterministic stand-in for Google Cloud Vision (web detection + text
@@ -15,7 +17,7 @@ class MockImageSearchProvider(ImageSearchProvider):
         count = n % 3
         return [
             ReverseImageMatch(
-                url=f"https://example-news.org/article/{digest[i:i + 6]}",
+                url=f"https://{_MOCK_NEWS_DOMAINS[i % len(_MOCK_NEWS_DOMAINS)]}/article/{digest[i:i + 6]}",
                 page_title=f"mock matching page {i + 1}",
                 match_confidence=round(0.5 + (i * 0.1), 2),
             )

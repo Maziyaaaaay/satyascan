@@ -42,6 +42,7 @@ class Verification(Base, UUIDPKMixin, TimestampMixin):
     explanation_language: Mapped[Optional[Language]] = mapped_column(
         SAEnum(Language, native_enum=False, length=8), nullable=True
     )
+    rationale: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     status: Mapped[VerificationStatus] = mapped_column(
         SAEnum(VerificationStatus, native_enum=False, length=16),

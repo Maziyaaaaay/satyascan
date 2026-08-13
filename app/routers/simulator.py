@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.models.enums import Channel, Language
 from app.models.evidence import Evidence
+from app.models.image import Image
 from app.providers.bundle import Providers, build_providers
 from app.services import verification_service
 from app.services.rate_limit_service import RateLimitExceeded
@@ -32,12 +33,20 @@ class SimulatorMessageRequest(BaseModel):
     language: Language = Language.en
 
 
+class SourceInfo(BaseModel):
+    url: str
+    domain: str
+
+
 class SimulatorMessageResponse(BaseModel):
     verdict: Optional[str] = None
     confidence_score: Optional[float] = None
     confidence_label: Optional[str] = None
     explanation: Optional[str] = None
-    sources: List[str] = []
+    rationale: Optional[str] = None
+    sources: List[SourceInfo] = []
+    image_match_count: Optional[int] = None
+    image_ocr_text: Optional[str] = None
 
 
 @router.get("/simulator")
@@ -68,18 +77,34 @@ async def simulator_message(
             explanation="You're sending messages too quickly - please wait a moment and try again."
         )
 
-    result = await db.execute(
+    evidence_result = await db.execute(
         select(Evidence)
         .options(selectinload(Evidence.source))
         .where(Evidence.verification_id == verification.id)
         .order_by(Evidence.rank)
     )
-    sources = [e.source.url for e in result.scalars().all() if e.source is not None]
+    sources = [
+        SourceInfo(url=e.source.url, domain=e.source.domain)
+        for e in evidence_result.scalars().all()
+        if e.source is not None
+    ]
+
+    image_match_count: Optional[int] = None
+    image_ocr_text: Optional[str] = None
+    if verification.has_image:
+        image_result = await db.execute(select(Image).where(Image.verification_id == verification.id))
+        image = image_result.scalar_one_or_none()
+        if image is not None:
+            image_match_count = image.reverse_search_match_count
+            image_ocr_text = image.ocr_text_excerpt
 
     return SimulatorMessageResponse(
         verdict=verification.verdict.value if verification.verdict else None,
         confidence_score=verification.confidence_score,
         confidence_label=verification.confidence_label.value if verification.confidence_label else None,
         explanation=verification.explanation_text,
+        rationale=verification.rationale,
         sources=sources,
+        image_match_count=image_match_count,
+        image_ocr_text=image_ocr_text,
     )

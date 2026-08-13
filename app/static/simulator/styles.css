@@ -103,12 +103,6 @@ body {
   color: var(--text);
 }
 
-.bubble-meta {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--muted);
-}
-
 .bubble img.attached {
   max-width: 100%;
   border-radius: 6px;
@@ -118,11 +112,93 @@ body {
 
 .bubble-pending { opacity: 0.6; font-style: italic; }
 
-.sources-list {
-  margin: 6px 0 0;
-  padding-left: 16px;
+.bubble-result { max-width: 92%; }
+
+.verdict-badge {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  color: white;
+}
+
+.verdict-true { background: #2e7d32; }
+.verdict-false { background: #c62828; }
+.verdict-misleading { background: #e65100; }
+.verdict-unverifiable { background: #546e7a; }
+.verdict-satire { background: #6a1b9a; }
+
+.confidence-wrap { margin-bottom: 10px; }
+
+.confidence-label {
   font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.confidence-track {
+  width: 100%;
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.confidence-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.confidence-high { background: #2e7d32; }
+.confidence-medium { background: #f9a825; }
+.confidence-low { background: #c62828; }
+
+.result-explanation {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.result-rationale {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #3a4750;
+  background: #f4f6f7;
+  border-left: 3px solid var(--wa-green);
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.result-image-summary {
+  font-size: 12.5px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.sources-heading {
+  font-size: 12px;
+  font-weight: 600;
   color: var(--muted);
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+
+.sources-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.sources-list a {
+  color: #0a5f78;
 }
 
 .composer {

@@ -16,7 +16,17 @@
 
   let pendingImageBase64 = null;
 
-  function addBubble(text, direction, opts) {
+  const VERDICT_META = {
+    true: { label: "TRUE", emoji: "✅", className: "verdict-true" },
+    false: { label: "FALSE", emoji: "❌", className: "verdict-false" },
+    misleading: { label: "MISLEADING", emoji: "⚠️", className: "verdict-misleading" },
+    unverifiable: { label: "UNVERIFIABLE", emoji: "❓", className: "verdict-unverifiable" },
+    satire: { label: "SATIRE", emoji: "🎭", className: "verdict-satire" },
+  };
+
+  const CONFIDENCE_CLASS = { high: "confidence-high", medium: "confidence-medium", low: "confidence-low" };
+
+  function addPlainBubble(text, direction, opts) {
     opts = opts || {};
     const bubble = document.createElement("div");
     bubble.className = "bubble bubble-" + direction + (opts.pending ? " bubble-pending" : "");
@@ -32,21 +42,90 @@
     textNode.textContent = text;
     bubble.appendChild(textNode);
 
-    if (opts.meta) {
-      const meta = document.createElement("div");
-      meta.className = "bubble-meta";
-      meta.textContent = opts.meta;
-      bubble.appendChild(meta);
+    chatLog.appendChild(bubble);
+    chatLog.scrollTop = chatLog.scrollHeight;
+    return bubble;
+  }
+
+  function addResultBubble(data) {
+    const bubble = document.createElement("div");
+    bubble.className = "bubble bubble-in bubble-result";
+
+    if (data.verdict && VERDICT_META[data.verdict]) {
+      const meta = VERDICT_META[data.verdict];
+      const badge = document.createElement("div");
+      badge.className = "verdict-badge " + meta.className;
+      badge.textContent = meta.emoji + " " + meta.label;
+      bubble.appendChild(badge);
     }
 
-    if (opts.sources && opts.sources.length) {
+    if (typeof data.confidence_score === "number") {
+      const pct = Math.round(data.confidence_score * 100);
+      const confClass = CONFIDENCE_CLASS[data.confidence_label] || "confidence-low";
+
+      const wrap = document.createElement("div");
+      wrap.className = "confidence-wrap";
+
+      const label = document.createElement("div");
+      label.className = "confidence-label";
+      label.textContent = "Confidence: " + pct + "% (" + (data.confidence_label || "unknown") + ")";
+      wrap.appendChild(label);
+
+      const track = document.createElement("div");
+      track.className = "confidence-track";
+      const fill = document.createElement("div");
+      fill.className = "confidence-fill " + confClass;
+      fill.style.width = pct + "%";
+      track.appendChild(fill);
+      wrap.appendChild(track);
+
+      bubble.appendChild(wrap);
+    }
+
+    const explanation = document.createElement("div");
+    explanation.className = "result-explanation";
+    explanation.textContent = data.explanation || "Sorry, something went wrong.";
+    bubble.appendChild(explanation);
+
+    if (data.rationale) {
+      const why = document.createElement("div");
+      why.className = "result-rationale";
+      why.innerHTML = "<strong>Why:</strong> ";
+      why.appendChild(document.createTextNode(data.rationale));
+      bubble.appendChild(why);
+    }
+
+    if (data.image_match_count !== null && data.image_match_count !== undefined) {
+      const imgSummary = document.createElement("div");
+      imgSummary.className = "result-image-summary";
+      imgSummary.textContent =
+        data.image_match_count > 0
+          ? `🖼️ This image was found on ${data.image_match_count} other page(s) online.`
+          : "🖼️ No matching source was found for this image online.";
+      bubble.appendChild(imgSummary);
+
+      if (data.image_ocr_text) {
+        const ocr = document.createElement("div");
+        ocr.className = "result-image-summary";
+        ocr.textContent = "Text detected in image: “" + data.image_ocr_text + "”";
+        bubble.appendChild(ocr);
+      }
+    }
+
+    if (data.sources && data.sources.length) {
+      const sourcesHeading = document.createElement("div");
+      sourcesHeading.className = "sources-heading";
+      sourcesHeading.textContent = "Checked against these sources:";
+      bubble.appendChild(sourcesHeading);
+
       const list = document.createElement("ul");
       list.className = "sources-list";
-      opts.sources.forEach((url) => {
+      data.sources.forEach((source) => {
         const li = document.createElement("li");
         const a = document.createElement("a");
-        a.href = url;
-        a.textContent = url;
+        a.href = source.url;
+        a.textContent = source.domain || source.url;
+        a.title = source.url;
         a.target = "_blank";
         a.rel = "noopener noreferrer";
         li.appendChild(a);
@@ -86,13 +165,13 @@
 
     if (!text && !imageBase64) return;
 
-    addBubble(text || "(image)", "out", { imageDataUrl });
+    addPlainBubble(text || "(image)", "out", { imageDataUrl });
     textInput.value = "";
     pendingImageBase64 = null;
     imageInput.value = "";
     imagePreviewRow.hidden = true;
 
-    const pendingBubble = addBubble("Checking…", "in", { pending: true });
+    const pendingBubble = addPlainBubble("Checking…", "in", { pending: true });
 
     try {
       const response = await fetch("/simulator/message", {
@@ -107,18 +186,10 @@
       });
       const data = await response.json();
       pendingBubble.remove();
-
-      const meta = data.verdict
-        ? `Verdict: ${data.verdict} · Confidence: ${data.confidence_label} (${Math.round((data.confidence_score || 0) * 100)}%)`
-        : null;
-
-      addBubble(data.explanation || "Sorry, something went wrong.", "in", {
-        meta,
-        sources: data.sources,
-      });
+      addResultBubble(data);
     } catch (err) {
       pendingBubble.remove();
-      addBubble("Network error - is the SatyaScan backend running?", "in");
+      addPlainBubble("Network error - is the SatyaScan backend running?", "in");
     }
   });
 })();

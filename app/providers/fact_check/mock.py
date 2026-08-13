@@ -3,7 +3,13 @@ from typing import List
 
 from app.providers.base import FactCheckProvider, FactCheckResult
 
-_PUBLISHERS = ["Boom Live", "Alt News", "PolitiFact", "Full Fact", "AFP Fact Check"]
+_PUBLISHERS = [
+    ("Boom Live", "boomlive.in"),
+    ("Alt News", "altnews.in"),
+    ("PolitiFact", "politifact.com"),
+    ("Full Fact", "fullfact.org"),
+    ("AFP Fact Check", "factcheck.afp.com"),
+]
 _RATINGS = ["False", "Misleading", "Partly False", "True", "Unproven"]
 
 
@@ -19,12 +25,13 @@ class MockFactCheckProvider(FactCheckProvider):
         results = []
         for i in range(count):
             m = int(hashlib.sha256(f"{query}:{i}".encode("utf-8")).hexdigest()[:8], 16)
+            publisher, domain = _PUBLISHERS[m % len(_PUBLISHERS)]
             results.append(
                 FactCheckResult(
                     claim_text=query,
                     rating=_RATINGS[m % len(_RATINGS)],
-                    publisher=_PUBLISHERS[m % len(_PUBLISHERS)],
-                    url=f"https://example-factcheck.org/claim/{m % 100000:x}",
+                    publisher=publisher,
+                    url=f"https://{domain}/claim/{m % 100000:x}",
                     review_date="2025-01-01",
                 )
             )

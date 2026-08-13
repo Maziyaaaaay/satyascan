@@ -182,6 +182,7 @@ async def _persist_pipeline_result(
 
     if state.reasoning is not None:
         verification.verdict = state.reasoning.verdict
+        verification.rationale = state.reasoning.rationale
     if state.confidence is not None:
         verification.confidence_score = state.confidence.score
         verification.confidence_label = state.confidence.label
