@@ -2,7 +2,10 @@ import httpx
 
 from app.providers.base import WhatsAppClient
 
-GRAPH_API_BASE = "https://graph.facebook.com/v19.0"
+# Meta deprecates old Graph API versions on a rolling ~2-year window - check
+# https://developers.facebook.com/docs/graph-api/changelog if requests start
+# failing with an "unsupported version" error and bump this.
+GRAPH_API_BASE = "https://graph.facebook.com/v23.0"
 
 
 class MetaWhatsAppClient(WhatsAppClient):
