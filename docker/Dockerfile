@@ -15,7 +15,12 @@ COPY pyproject.toml alembic.ini ./
 COPY app ./app
 COPY migrations ./migrations
 
-RUN pip install --upgrade pip && pip install .
+# Includes the [real] extras (Gemini/OpenAI/Vision/Translate SDKs) so the
+# deployed container can use real providers as soon as API keys are set via
+# environment variables - no rebuild needed to switch a service from mock to
+# live. Confirmed live on Railway: without this, real provider calls fail
+# with "google-generativeai is not installed."
+RUN pip install --upgrade pip && pip install ".[real]"
 
 RUN mkdir -p /app/data
 
