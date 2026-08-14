@@ -20,6 +20,13 @@ from app.providers.whatsapp.mock import MockWhatsAppClient
 
 @pytest.fixture(autouse=True)
 def _clean_provider_state(monkeypatch):
+    # Set to "" rather than delenv: pydantic-settings reads values straight
+    # out of a real local .env file regardless of the OS environment, so
+    # deleting an OS var doesn't hide a value already present in .env (which
+    # may hold real keys for local dev). An OS env var explicitly set to ""
+    # takes precedence over .env per pydantic-settings' source order, and ""
+    # is falsy - the factory functions check truthiness, so this reliably
+    # forces the mock path regardless of what's in .env.
     for var in [
         "GEMINI_API_KEY",
         "OPENAI_API_KEY",
@@ -31,7 +38,7 @@ def _clean_provider_state(monkeypatch):
         "WHATSAPP_ACCESS_TOKEN",
         "WHATSAPP_PHONE_NUMBER_ID",
     ]:
-        monkeypatch.delenv(var, raising=False)
+        monkeypatch.setenv(var, "")
     get_settings.cache_clear()
     reset_providers_for_tests()
     yield
