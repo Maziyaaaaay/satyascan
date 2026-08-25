@@ -3,7 +3,7 @@ from typing import List, Optional, Type
 
 from pydantic import BaseModel
 
-from app.providers.base import LLMProvider, LLMResponse
+from app.providers.base import LLMProvider, LLMResponse, WebSearchResult
 from app.providers.llm._gemini_schema import to_gemini_schema
 
 # "-latest" alias so this doesn't silently break again next time Google
@@ -72,6 +72,51 @@ class GeminiProvider(LLMProvider):
                     temperature=temperature,
                 )
             raise
+
+    async def search_grounded(self, query: str) -> Optional[WebSearchResult]:
+        # Best-effort: grounding support depends on the resolved model
+        # version and can fail for reasons unrelated to the claim itself
+        # (unsupported tool, quota, transient error) - any failure here
+        # must just mean "no live-search evidence available", never break
+        # the pipeline the way a raised exception would.
+        try:
+            import google.generativeai as genai
+        except ImportError:
+            return None
+
+        try:
+            genai.configure(api_key=self._api_key)
+            model = genai.GenerativeModel(self._model_name)
+            # Confirmed live: this deprecated SDK's dict-shorthand tool spec
+            # (tools=[{"google_search": {}}]) is misparsed as a
+            # FunctionDeclaration ("Unknown field for FunctionDeclaration:
+            # google_search"), and the older GoogleSearchRetrieval proto is
+            # explicitly rejected by the API for this model family ("400
+            # google_search_retrieval is not supported. Please use
+            # google_search tool instead") - the nested Tool.GoogleSearch
+            # message below is the form that actually works.
+            search_tool = genai.protos.Tool(google_search=genai.protos.Tool.GoogleSearch())
+            response = await model.generate_content_async(
+                query,
+                tools=[search_tool],
+                request_options={"timeout": REQUEST_TIMEOUT_SECONDS},
+            )
+            summary = response.text
+            if not summary:
+                return None
+
+            source_urls: List[str] = []
+            for candidate in getattr(response, "candidates", None) or []:
+                grounding_metadata = getattr(candidate, "grounding_metadata", None)
+                for chunk in getattr(grounding_metadata, "grounding_chunks", None) or []:
+                    web = getattr(chunk, "web", None)
+                    uri = getattr(web, "uri", None)
+                    if uri:
+                        source_urls.append(uri)
+
+            return WebSearchResult(summary=summary, source_urls=source_urls)
+        except Exception:
+            return None
 
     async def embed(self, texts: List[str]) -> List[List[float]]:
         try:

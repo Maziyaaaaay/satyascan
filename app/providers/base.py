@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Type
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LLMResponse(BaseModel):
@@ -36,6 +36,11 @@ class AIDetectionResult(BaseModel):
     reasoning: str
 
 
+class WebSearchResult(BaseModel):
+    summary: str
+    source_urls: List[str] = Field(default_factory=list)
+
+
 class LLMProvider(ABC):
     """Text generation + embeddings. When response_schema is given,
     implementations must return a LLMResponse whose `parsed` dict validates
@@ -55,6 +60,15 @@ class LLMProvider(ABC):
 
     @abstractmethod
     async def embed(self, texts: List[str]) -> List[List[float]]: ...
+
+    async def search_grounded(self, query: str) -> Optional[WebSearchResult]:
+        """Optional capability: answer `query` using live web search
+        (e.g. Gemini's Google Search grounding tool), for claims about
+        events too recent for any fact-checker to have published on yet.
+        Providers that don't support this (mock, OpenAI) return None, and
+        callers must treat that as "no grounded result available", not
+        an error."""
+        return None
 
 
 class FactCheckProvider(ABC):
