@@ -43,16 +43,37 @@ future you) can pick up without re-deriving everything below.
   This is what fixed a real bug where a recent, real event (a change of
   Chief Minister) was confidently reported as false because the
   reasoning LLM's training data predates the event.
+- **Duplicate-reply protection**: WhatsApp delivers webhooks at-least-once
+  and retries on a slow response (our pipeline runs several LLM calls per
+  message); a `webhook_events` table (see `app/models/webhook_event.py`)
+  claims each inbound message id in its own immediately-committed
+  transaction before the pipeline runs, so a retry is a no-op instead of
+  a duplicate reply.
+- **First-ever message gets a plain welcome reply**, no verdict — a
+  brand-new WhatsApp user's very first message (regardless of content)
+  gets the welcome text only; real verification starts from their next
+  message. See `_handle_message` in `app/routers/webhook_whatsapp.py`.
+- **Video messages**: downloads the video, extracts a representative
+  frame via `ffmpeg` (fed into the same AI-generation-detection pipeline
+  as a photo) and the audio track (fed into speech-to-text, same as a
+  voice note) — see `app/services/video_processing.py`. Best-effort: if
+  `ffmpeg` can't decode it, falls back to just the message caption rather
+  than dropping the message. Requires `ffmpeg` on the image (added to
+  `docker/Dockerfile`) — not yet confirmed working against a real
+  WhatsApp video in production, only against mocked extraction in tests.
 
 ## Known gaps / deferred
 
-- **Audio/voice-note transcription is built but non-functional.** Code is
-  deployed (OpenAI Whisper integration, `app/providers/speech_to_text/`),
-  but the `OPENAI_API_KEY` has an `insufficient_quota` billing issue —
-  confirmed live, not fixed. Voice notes currently fall through with "no
-  claim found" until OpenAI billing is set up (Google AI Studio-style: add
-  a payment method at platform.openai.com/settings/organization/billing).
-  User explicitly deferred this ("not now") as of this session.
+- **Audio/voice-note transcription (including video audio tracks) is
+  built but non-functional.** Code is deployed (OpenAI Whisper
+  integration, `app/providers/speech_to_text/`), but the
+  `OPENAI_API_KEY` has an `insufficient_quota` billing issue — confirmed
+  live, not fixed. Voice notes and video audio currently fall through
+  with "no claim found" until OpenAI billing is set up (Google AI
+  Studio-style: add a payment method at
+  platform.openai.com/settings/organization/billing). User explicitly
+  deferred this ("not now") earlier in the project. Video frame analysis
+  (AI-generation detection, via Sightengine) is unaffected by this gap.
 - **Full WhatsApp "production" tier not complete**: payment method for
   business-initiated messages, and Meta Business Verification, are both
   still outstanding. Currently running on the free tier (1,000

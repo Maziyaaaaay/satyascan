@@ -31,6 +31,29 @@ def _meta_text_message_payload(from_number: str, text: str, message_id: str = "w
     }
 
 
+def _meta_video_message_payload(from_number: str, caption: str = "", message_id: str = "wamid.VIDEO123"):
+    return {
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "messages": [
+                                {
+                                    "from": from_number,
+                                    "id": message_id,
+                                    "type": "video",
+                                    "video": {"id": "media-id-video-1", "mime_type": "video/mp4", "caption": caption},
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
+
 def _meta_audio_message_payload(from_number: str, message_id: str = "wamid.AUDIO123"):
     return {
         "entry": [
@@ -156,6 +179,62 @@ async def test_inbound_audio_message_is_transcribed_and_verified(app_client):
 
     assert len(providers.whatsapp.sent_messages) == 2
     assert providers.whatsapp.read_receipts == ["wamid.PRIME892", "wamid.AUDIO123"]
+
+
+@pytest.mark.asyncio
+async def test_inbound_video_with_extraction_uses_frame_and_transcribed_audio(app_client, monkeypatch):
+    client, providers = app_client
+    from_number = "+911234567896"
+    priming_payload = _meta_text_message_payload(from_number, "hi", message_id="wamid.PRIME896")
+    await client.post("/webhook/whatsapp", json=priming_payload)
+
+    async def fake_extract(video_bytes: bytes):
+        return b"fake-frame-bytes", b"fake-audio-bytes"
+
+    monkeypatch.setattr("app.routers.webhook_whatsapp.video_processing.extract_frame_and_audio", fake_extract)
+
+    payload = _meta_video_message_payload(from_number, caption="watch this")
+    response = await client.post("/webhook/whatsapp", json=payload)
+    assert response.status_code == 200
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(select(Verification))
+        verifications = result.scalars().all()
+    assert len(verifications) == 1
+    # The extracted frame should have been threaded through as the
+    # verification's image (claim_text itself may be reshaped by the mock
+    # LLM's claim-extraction step, so just check it ran on non-empty input).
+    assert verifications[0].has_image is True
+    assert verifications[0].claim_text
+
+    assert len(providers.whatsapp.sent_messages) == 2
+    assert providers.whatsapp.read_receipts == ["wamid.PRIME896", "wamid.VIDEO123"]
+
+
+@pytest.mark.asyncio
+async def test_inbound_video_falls_back_to_caption_when_extraction_fails(app_client, monkeypatch):
+    client, providers = app_client
+    from_number = "+911234567897"
+    priming_payload = _meta_text_message_payload(from_number, "hi", message_id="wamid.PRIME897")
+    await client.post("/webhook/whatsapp", json=priming_payload)
+
+    async def fake_extract(video_bytes: bytes):
+        return None, None
+
+    monkeypatch.setattr("app.routers.webhook_whatsapp.video_processing.extract_frame_and_audio", fake_extract)
+
+    payload = _meta_video_message_payload(from_number, caption="Drinking hot water cures COVID")
+    response = await client.post("/webhook/whatsapp", json=payload)
+    assert response.status_code == 200
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(select(Verification))
+        verifications = result.scalars().all()
+    assert len(verifications) == 1
+    assert verifications[0].has_image is False
+    assert verifications[0].claim_text
 
 
 @pytest.mark.asyncio

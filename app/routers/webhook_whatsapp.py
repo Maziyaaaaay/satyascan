@@ -15,7 +15,7 @@ from app.models.verification import Verification
 from app.models.webhook_event import WebhookEvent
 from app.providers.bundle import Providers, build_providers
 from app.security.signature import verify_signature
-from app.services import verification_service
+from app.services import verification_service, video_processing
 from app.services.rate_limit_service import RateLimitExceeded
 
 router = APIRouter()
@@ -244,6 +244,22 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
         if media_id:
             audio_bytes = await providers.whatsapp.download_media(media_id)
             text = await providers.speech_to_text.transcribe(audio_bytes, mime_type=audio_field.get("mime_type"))
+    elif message_type == "video":
+        video_field = message.get("video") or {}
+        media_id = video_field.get("id")
+        if media_id:
+            video_bytes = await providers.whatsapp.download_media(media_id)
+            # Best-effort: a representative frame feeds the existing
+            # image-analysis pipeline (AI-generation detection, reverse
+            # search), and the audio track feeds the existing speech-to-text
+            # pipeline, same as a voice note - if ffmpeg can't decode it,
+            # this degrades to just the caption rather than dropping the
+            # message.
+            image_bytes, video_audio_bytes = await video_processing.extract_frame_and_audio(video_bytes)
+            transcript = None
+            if video_audio_bytes:
+                transcript = await providers.speech_to_text.transcribe(video_audio_bytes, mime_type="audio/mpeg")
+            text = "\n".join(part for part in (video_field.get("caption"), transcript) if part) or None
 
     preferred_language = await _detect_language(providers, text)
 

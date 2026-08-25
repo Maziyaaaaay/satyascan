@@ -6,9 +6,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# chromadb's native deps (e.g. hnswlib) occasionally have no prebuilt wheel
-# for a given platform/Python combo and fall back to compiling from source.
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+# build-essential: chromadb's native deps (e.g. hnswlib) occasionally have no
+# prebuilt wheel for a given platform/Python combo and fall back to compiling
+# from source. ffmpeg: extracts a frame + audio track from forwarded WhatsApp
+# videos (see app/services/video_processing.py) - no Python package needed,
+# invoked as a subprocess.
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml alembic.ini ./
