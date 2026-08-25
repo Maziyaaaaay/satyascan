@@ -46,6 +46,7 @@ class RankedEvidence(BaseModel):
     stance: Stance = Stance.neutral
     relevance_score: float = 0.0
     rank: int = 0
+    is_live_search: bool = False
 
 
 class ReasoningResult(BaseModel):

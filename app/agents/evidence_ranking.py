@@ -46,6 +46,7 @@ async def run(state: PipelineState, providers: Providers) -> PipelineState:
                 "url": fc.url or "",
                 "domain": _domain(fc.url) or "",
                 "stance": _stance_from_rating(fc.rating).value,
+                "is_live_search": fc.publisher == "Live web search",
             }
         )
     for match in image_matches:
@@ -85,6 +86,7 @@ async def run(state: PipelineState, providers: Providers) -> PipelineState:
                 stance=Stance(match.metadata.get("stance", Stance.neutral.value)),
                 relevance_score=round(relevance, 4),
                 rank=rank,
+                is_live_search=bool(match.metadata.get("is_live_search", False)),
             )
         )
     state.ranked_evidence = ranked
