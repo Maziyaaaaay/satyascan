@@ -42,8 +42,13 @@ class MetaWhatsAppClient(WhatsAppClient):
             return media_response.content
 
     async def mark_as_read(self, message_id: str) -> None:
+        # Best-effort: a failure here (e.g. an already-expired message_id)
+        # must never block the actual reply from being sent.
         url = f"{GRAPH_API_BASE}/{self._phone_number_id}/messages"
         payload = {"messaging_product": "whatsapp", "status": "read", "message_id": message_id}
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(url, json=payload, headers=self._headers)
-            response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, json=payload, headers=self._headers)
+                response.raise_for_status()
+        except httpx.HTTPError:
+            pass

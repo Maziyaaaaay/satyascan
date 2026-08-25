@@ -1,12 +1,15 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request, Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.session import get_db
 from app.logging_conf import get_logger
-from app.models.enums import Channel
+from app.models.enums import Channel, ConfidenceLabel, Language, Verdict
+from app.models.image import Image
+from app.models.verification import Verification
 from app.providers.bundle import Providers, build_providers
 from app.security.signature import verify_signature
 from app.services import verification_service
@@ -14,6 +17,101 @@ from app.services.rate_limit_service import RateLimitExceeded
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+# Only en/ml are supported end-to-end (see app/models/enums.py Language) -
+# any other detected language falls back to English rather than erroring.
+_DETECTED_LANGUAGE_MAP = {"ml": Language.ml, "en": Language.en}
+
+_VERDICT_LABELS = {
+    Language.en: {
+        (Verdict.true, True): "TRUE",
+        (Verdict.true, False): "LIKELY TRUE",
+        (Verdict.false, True): "FALSE",
+        (Verdict.false, False): "LIKELY FALSE",
+        (Verdict.misleading, True): "MISLEADING",
+        (Verdict.misleading, False): "MISLEADING",
+        (Verdict.unverifiable, True): "UNVERIFIABLE",
+        (Verdict.unverifiable, False): "UNVERIFIABLE",
+        (Verdict.satire, True): "SATIRE",
+        (Verdict.satire, False): "SATIRE",
+    },
+    Language.ml: {
+        (Verdict.true, True): "ശരി",
+        (Verdict.true, False): "മിക്കവാറും ശരി",
+        (Verdict.false, True): "തെറ്റ്",
+        (Verdict.false, False): "മിക്കവാറും തെറ്റ്",
+        (Verdict.misleading, True): "തെറ്റിദ്ധരിപ്പിക്കുന്നത്",
+        (Verdict.misleading, False): "തെറ്റിദ്ധരിപ്പിക്കുന്നത്",
+        (Verdict.unverifiable, True): "സ്ഥിരീകരിക്കാൻ കഴിയില്ല",
+        (Verdict.unverifiable, False): "സ്ഥിരീകരിക്കാൻ കഴിയില്ല",
+        (Verdict.satire, True): "ആക്ഷേപഹാസ്യം",
+        (Verdict.satire, False): "ആക്ഷേപഹാസ്യം",
+    },
+}
+
+_LABELS = {
+    Language.en: {"verdict": "Verdict", "confidence": "Confidence", "summary": "Summary", "image": "Image check"},
+    Language.ml: {
+        "verdict": "വിധി",
+        "confidence": "വിശ്വാസ്യത",
+        "summary": "ചുരുക്കം",
+        "image": "ചിത്ര പരിശോധന",
+    },
+}
+
+_IMAGE_VERDICT_TEXT = {
+    Language.en: {
+        "ai": "This image appears to be AI-generated or fabricated.",
+        "real": "This image appears to be a real, unedited photo.",
+        "unsure": "Could not confidently determine if this image is AI-generated.",
+    },
+    Language.ml: {
+        "ai": "ഈ ചിത്രം AI ഉപയോഗിച്ച് നിർമ്മിച്ചതോ കൃത്രിമമായി ഉണ്ടാക്കിയതോ ആകാം.",
+        "real": "ഈ ചിത്രം യഥാർത്ഥവും തിരുത്തപ്പെടാത്തതുമായ ഫോട്ടോ ആണെന്ന് തോന്നുന്നു.",
+        "unsure": "ഈ ചിത്രം AI നിർമ്മിതമാണോ എന്ന് ഉറപ്പിച്ച് പറയാൻ കഴിയില്ല.",
+    },
+}
+
+
+def _verdict_label(verdict: Optional[Verdict], confidence_label: Optional[ConfidenceLabel], language: Language) -> str:
+    if verdict is None:
+        return _VERDICT_LABELS[language][(Verdict.unverifiable, True)]
+    is_high_confidence = confidence_label == ConfidenceLabel.high
+    return _VERDICT_LABELS[language][(verdict, is_high_confidence)]
+
+
+def _image_verdict_text(ai_generated_probability: Optional[float], language: Language) -> str:
+    texts = _IMAGE_VERDICT_TEXT[language]
+    if ai_generated_probability is None:
+        return texts["unsure"]
+    if ai_generated_probability >= 0.6:
+        return texts["ai"]
+    if ai_generated_probability <= 0.3:
+        return texts["real"]
+    return texts["unsure"]
+
+
+async def _build_reply_text(db: AsyncSession, verification: Verification, language: Language) -> str:
+    labels = _LABELS[language]
+    confidence_pct = round((verification.confidence_score or 0.0) * 100)
+    lines = [
+        f"{labels['verdict']}: {_verdict_label(verification.verdict, verification.confidence_label, language)}",
+        f"{labels['confidence']}: {confidence_pct}/100",
+        "",
+        f"{labels['summary']}: {verification.explanation_text or ''}".strip(),
+    ]
+
+    if verification.has_image:
+        image_result = await db.execute(select(Image).where(Image.verification_id == verification.id))
+        image = image_result.scalar_one_or_none()
+        if image is not None:
+            image_line = _image_verdict_text(image.ai_generated_probability, language)
+            if image.ai_generated_reasoning:
+                image_line = f"{image_line} {image.ai_generated_reasoning}"
+            lines.append("")
+            lines.append(f"{labels['image']}: {image_line}")
+
+    return "\n".join(lines).strip()
 
 
 def get_providers() -> Providers:
@@ -78,6 +176,8 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
             image_bytes = await providers.whatsapp.download_media(media_id)
         text = image_field.get("caption")
 
+    preferred_language = await _detect_language(providers, text)
+
     try:
         verification = await verification_service.process_incoming(
             db,
@@ -87,6 +187,7 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
             text=text,
             image_bytes=image_bytes,
             external_message_id=message_id,
+            preferred_language=preferred_language,
         )
     except RateLimitExceeded:
         await providers.whatsapp.send_text_message(
@@ -97,5 +198,16 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
     if message_id:
         await providers.whatsapp.mark_as_read(message_id)
 
-    reply_text = verification.explanation_text or "Sorry, I couldn't process that message."
-    await providers.whatsapp.send_text_message(from_number, reply_text)
+    reply_language = verification.explanation_language or preferred_language or Language.en
+    reply_text = await _build_reply_text(db, verification, reply_language)
+    await providers.whatsapp.send_text_message(from_number, reply_text or "Sorry, I couldn't process that message.")
+
+
+async def _detect_language(providers: Providers, text: Optional[str]) -> Optional[Language]:
+    if not text or not text.strip():
+        return None
+    try:
+        detected = await providers.translation.detect_language(text)
+    except Exception:
+        return None
+    return _DETECTED_LANGUAGE_MAP.get(detected)
