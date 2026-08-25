@@ -173,6 +173,7 @@ _PROVIDER_TO_BUNDLE_ATTR = {
     ProviderName.google_translate: "translation",
     ProviderName.whatsapp: "whatsapp",
     ProviderName.openai_whisper: "speech_to_text",
+    ProviderName.serper: "web_search",
 }
 
 

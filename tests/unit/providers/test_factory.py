@@ -8,6 +8,7 @@ from app.providers.factory import (
     get_llm_provider,
     get_speech_to_text_provider,
     get_translation_provider,
+    get_web_search_provider,
     get_whatsapp_client,
     reset_providers_for_tests,
 )
@@ -17,6 +18,7 @@ from app.providers.image_search.mock import MockImageSearchProvider
 from app.providers.llm.mock import MockLLMProvider
 from app.providers.speech_to_text.mock import MockSpeechToTextProvider
 from app.providers.translation.mock import MockTranslationProvider
+from app.providers.web_search.mock import MockWebSearchProvider
 from app.providers.whatsapp.mock import MockWhatsAppClient
 
 
@@ -39,6 +41,7 @@ def _clean_provider_state(monkeypatch):
         "SIGHTENGINE_API_SECRET",
         "WHATSAPP_ACCESS_TOKEN",
         "WHATSAPP_PHONE_NUMBER_ID",
+        "SERPER_API_KEY",
     ]:
         monkeypatch.setenv(var, "")
     get_settings.cache_clear()
@@ -55,6 +58,7 @@ def test_defaults_to_mocks_with_no_env_vars_set():
     assert isinstance(get_ai_detection_provider(), MockAIImageDetectionProvider)
     assert isinstance(get_translation_provider(), MockTranslationProvider)
     assert isinstance(get_speech_to_text_provider(), MockSpeechToTextProvider)
+    assert isinstance(get_web_search_provider(), MockWebSearchProvider)
     assert isinstance(get_whatsapp_client(), MockWhatsAppClient)
 
 
@@ -105,6 +109,16 @@ def test_openai_key_selects_real_whisper_provider(monkeypatch):
     reset_providers_for_tests()
 
     assert isinstance(get_speech_to_text_provider(), OpenAIWhisperProvider)
+
+
+def test_serper_key_selects_real_web_search_provider(monkeypatch):
+    from app.providers.web_search.serper import SerperWebSearchProvider
+
+    monkeypatch.setenv("SERPER_API_KEY", "test-key")
+    get_settings.cache_clear()
+    reset_providers_for_tests()
+
+    assert isinstance(get_web_search_provider(), SerperWebSearchProvider)
 
 
 def test_whatsapp_requires_both_token_and_phone_id(monkeypatch):

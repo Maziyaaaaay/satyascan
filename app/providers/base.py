@@ -61,15 +61,6 @@ class LLMProvider(ABC):
     @abstractmethod
     async def embed(self, texts: List[str]) -> List[List[float]]: ...
 
-    async def search_grounded(self, query: str) -> Optional[WebSearchResult]:
-        """Optional capability: answer `query` using live web search
-        (e.g. Gemini's Google Search grounding tool), for claims about
-        events too recent for any fact-checker to have published on yet.
-        Providers that don't support this (mock, OpenAI) return None, and
-        callers must treat that as "no grounded result available", not
-        an error."""
-        return None
-
 
 class FactCheckProvider(ABC):
     @abstractmethod
@@ -103,6 +94,19 @@ class TranslationProvider(ABC):
 
     @abstractmethod
     async def detect_language(self, text: str) -> str: ...
+
+
+class WebSearchProvider(ABC):
+    """Independent, real-time web search (not an LLM's own built-in search
+    tool - confirmed live that Gemini's Google Search grounding still
+    overrides fresh results with its own stale training-time belief on a
+    real case, e.g. reporting a several-months-old change of government as
+    "speculative or fictional"). Used as a fallback when no fact-check
+    article covers a claim, so verdicts on recent events aren't decided by
+    a model's frozen knowledge."""
+
+    @abstractmethod
+    async def search(self, query: str) -> Optional[WebSearchResult]: ...
 
 
 class SpeechToTextProvider(ABC):

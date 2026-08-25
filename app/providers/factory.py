@@ -8,6 +8,7 @@ from app.providers.base import (
     LLMProvider,
     SpeechToTextProvider,
     TranslationProvider,
+    WebSearchProvider,
     WhatsAppClient,
 )
 
@@ -103,6 +104,19 @@ def get_speech_to_text_provider() -> SpeechToTextProvider:
 
 
 @lru_cache
+def get_web_search_provider() -> WebSearchProvider:
+    settings = get_settings()
+    if settings.serper_api_key:
+        from app.providers.web_search.serper import SerperWebSearchProvider
+
+        return SerperWebSearchProvider(api_key=settings.serper_api_key)
+
+    from app.providers.web_search.mock import MockWebSearchProvider
+
+    return MockWebSearchProvider()
+
+
+@lru_cache
 def get_whatsapp_client() -> WhatsAppClient:
     settings = get_settings()
     if settings.whatsapp_access_token and settings.whatsapp_phone_number_id:
@@ -127,4 +141,5 @@ def reset_providers_for_tests() -> None:
     get_ai_detection_provider.cache_clear()
     get_translation_provider.cache_clear()
     get_speech_to_text_provider.cache_clear()
+    get_web_search_provider.cache_clear()
     get_whatsapp_client.cache_clear()

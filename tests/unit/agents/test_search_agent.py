@@ -5,8 +5,7 @@ import pytest
 
 from app.agents import search_agent
 from app.agents.state import ExtractedClaim
-from app.providers.base import FactCheckProvider, FactCheckResult, WebSearchResult
-from app.providers.llm.mock import MockLLMProvider
+from app.providers.base import FactCheckProvider, FactCheckResult, WebSearchProvider, WebSearchResult
 
 
 class _EmptyFactCheckProvider(FactCheckProvider):
@@ -14,13 +13,13 @@ class _EmptyFactCheckProvider(FactCheckProvider):
         return []
 
 
-class _GroundedLLMProvider(MockLLMProvider):
-    async def search_grounded(self, query: str) -> Optional[WebSearchResult]:
+class _WorkingWebSearchProvider(WebSearchProvider):
+    async def search(self, query: str) -> Optional[WebSearchResult]:
         return WebSearchResult(summary="Live search says X.", source_urls=["https://example.com/live"])
 
 
-class _UngroundedLLMProvider(MockLLMProvider):
-    async def search_grounded(self, query: str) -> Optional[WebSearchResult]:
+class _FailingWebSearchProvider(WebSearchProvider):
+    async def search(self, query: str) -> Optional[WebSearchResult]:
         return None
 
 
@@ -39,9 +38,11 @@ async def test_no_claims_returns_empty_search_result(base_state, providers):
 
 
 @pytest.mark.asyncio
-async def test_falls_back_to_grounded_search_when_no_fact_checks_found(base_state, providers):
+async def test_falls_back_to_web_search_when_no_fact_checks_found(base_state, providers):
     base_state.claims = [ExtractedClaim(text="orig", normalized_text="some very recent claim")]
-    providers = dataclasses.replace(providers, fact_check=_EmptyFactCheckProvider(), llm=_GroundedLLMProvider())
+    providers = dataclasses.replace(
+        providers, fact_check=_EmptyFactCheckProvider(), web_search=_WorkingWebSearchProvider()
+    )
 
     result = await search_agent.run(base_state, providers)
 
@@ -52,9 +53,11 @@ async def test_falls_back_to_grounded_search_when_no_fact_checks_found(base_stat
 
 
 @pytest.mark.asyncio
-async def test_stays_empty_when_grounded_search_unavailable(base_state, providers):
+async def test_stays_empty_when_web_search_unavailable(base_state, providers):
     base_state.claims = [ExtractedClaim(text="orig", normalized_text="some very recent claim")]
-    providers = dataclasses.replace(providers, fact_check=_EmptyFactCheckProvider(), llm=_UngroundedLLMProvider())
+    providers = dataclasses.replace(
+        providers, fact_check=_EmptyFactCheckProvider(), web_search=_FailingWebSearchProvider()
+    )
 
     result = await search_agent.run(base_state, providers)
 

@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     sightengine_api_user: Optional[str] = None
     sightengine_api_secret: Optional[str] = None
 
+    serper_api_key: Optional[str] = None
+
     whatsapp_access_token: Optional[str] = None
     whatsapp_phone_number_id: Optional[str] = None
     whatsapp_verify_token: Optional[str] = None
