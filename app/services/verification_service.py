@@ -172,6 +172,7 @@ _PROVIDER_TO_BUNDLE_ATTR = {
     ProviderName.sightengine: "ai_detection",
     ProviderName.google_translate: "translation",
     ProviderName.whatsapp: "whatsapp",
+    ProviderName.openai_whisper: "speech_to_text",
 }
 
 

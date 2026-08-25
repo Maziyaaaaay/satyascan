@@ -5,6 +5,7 @@ from app.providers.base import (
     FactCheckProvider,
     ImageSearchProvider,
     LLMProvider,
+    SpeechToTextProvider,
     TranslationProvider,
     WhatsAppClient,
 )
@@ -22,6 +23,7 @@ class Providers:
     image_search: ImageSearchProvider
     ai_detection: AIImageDetectionProvider
     translation: TranslationProvider
+    speech_to_text: SpeechToTextProvider
     whatsapp: WhatsAppClient
     vectorstore: VectorStore
 
@@ -33,6 +35,7 @@ def build_providers() -> Providers:
         get_fact_check_provider,
         get_image_search_provider,
         get_llm_provider,
+        get_speech_to_text_provider,
         get_translation_provider,
         get_whatsapp_client,
     )
@@ -45,6 +48,7 @@ def build_providers() -> Providers:
         image_search=get_image_search_provider(),
         ai_detection=get_ai_detection_provider(),
         translation=get_translation_provider(),
+        speech_to_text=get_speech_to_text_provider(),
         whatsapp=get_whatsapp_client(),
         vectorstore=ChromaStore(persist_dir=settings.chroma_persist_dir),
     )
@@ -57,6 +61,7 @@ def build_mock_providers() -> Providers:
     from app.providers.fact_check.mock import MockFactCheckProvider
     from app.providers.image_search.mock import MockImageSearchProvider
     from app.providers.llm.mock import MockLLMProvider
+    from app.providers.speech_to_text.mock import MockSpeechToTextProvider
     from app.providers.translation.mock import MockTranslationProvider
     from app.providers.whatsapp.mock import MockWhatsAppClient
     from app.vectorstore.chroma_store import ChromaStore
@@ -68,6 +73,7 @@ def build_mock_providers() -> Providers:
         image_search=MockImageSearchProvider(),
         ai_detection=MockAIImageDetectionProvider(),
         translation=MockTranslationProvider(),
+        speech_to_text=MockSpeechToTextProvider(),
         whatsapp=MockWhatsAppClient(),
         vectorstore=ChromaStore(persist_dir=tempfile.mkdtemp()),
     )

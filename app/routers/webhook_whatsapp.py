@@ -167,14 +167,24 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
     text: Optional[str] = None
     image_bytes: Optional[bytes] = None
 
-    if message.get("type") == "text":
+    message_type = message.get("type")
+    if message_type == "text":
         text = (message.get("text") or {}).get("body")
-    elif message.get("type") == "image":
+    elif message_type == "image":
         image_field = message.get("image") or {}
         media_id = image_field.get("id")
         if media_id:
             image_bytes = await providers.whatsapp.download_media(media_id)
         text = image_field.get("caption")
+    elif message_type in ("audio", "voice"):
+        # WhatsApp voice notes and forwarded audio files both arrive as
+        # type "audio" (Cloud API has no separate "voice" type - "voice" is
+        # kept here only in case that ever changes upstream).
+        audio_field = message.get("audio") or message.get("voice") or {}
+        media_id = audio_field.get("id")
+        if media_id:
+            audio_bytes = await providers.whatsapp.download_media(media_id)
+            text = await providers.speech_to_text.transcribe(audio_bytes, mime_type=audio_field.get("mime_type"))
 
     preferred_language = await _detect_language(providers, text)
 

@@ -6,6 +6,7 @@ from app.providers.base import (
     FactCheckProvider,
     ImageSearchProvider,
     LLMProvider,
+    SpeechToTextProvider,
     TranslationProvider,
     WhatsAppClient,
 )
@@ -89,6 +90,19 @@ def get_translation_provider() -> TranslationProvider:
 
 
 @lru_cache
+def get_speech_to_text_provider() -> SpeechToTextProvider:
+    settings = get_settings()
+    if settings.openai_api_key:
+        from app.providers.speech_to_text.openai_whisper import OpenAIWhisperProvider
+
+        return OpenAIWhisperProvider(api_key=settings.openai_api_key)
+
+    from app.providers.speech_to_text.mock import MockSpeechToTextProvider
+
+    return MockSpeechToTextProvider()
+
+
+@lru_cache
 def get_whatsapp_client() -> WhatsAppClient:
     settings = get_settings()
     if settings.whatsapp_access_token and settings.whatsapp_phone_number_id:
@@ -112,4 +126,5 @@ def reset_providers_for_tests() -> None:
     get_image_search_provider.cache_clear()
     get_ai_detection_provider.cache_clear()
     get_translation_provider.cache_clear()
+    get_speech_to_text_provider.cache_clear()
     get_whatsapp_client.cache_clear()

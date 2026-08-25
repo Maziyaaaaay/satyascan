@@ -91,6 +91,14 @@ class TranslationProvider(ABC):
     async def detect_language(self, text: str) -> str: ...
 
 
+class SpeechToTextProvider(ABC):
+    """Transcribes a voice note / audio file to text so it can be run
+    through the same claim-verification pipeline as a typed message."""
+
+    @abstractmethod
+    async def transcribe(self, audio_bytes: bytes, mime_type: Optional[str] = None) -> str: ...
+
+
 class WhatsAppClient(ABC):
     @abstractmethod
     async def send_text_message(self, to: str, body: str) -> str: ...

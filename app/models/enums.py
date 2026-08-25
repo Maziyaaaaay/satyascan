@@ -79,6 +79,7 @@ class ProviderName(str, enum.Enum):
     google_translate = "google_translate"
     sightengine = "sightengine"
     whatsapp = "whatsapp"
+    openai_whisper = "openai_whisper"
 
 
 class AuditEventType(str, enum.Enum):

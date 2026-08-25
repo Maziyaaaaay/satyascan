@@ -6,6 +6,7 @@ from app.providers.factory import (
     get_fact_check_provider,
     get_image_search_provider,
     get_llm_provider,
+    get_speech_to_text_provider,
     get_translation_provider,
     get_whatsapp_client,
     reset_providers_for_tests,
@@ -14,6 +15,7 @@ from app.providers.ai_detection.mock import MockAIImageDetectionProvider
 from app.providers.fact_check.mock import MockFactCheckProvider
 from app.providers.image_search.mock import MockImageSearchProvider
 from app.providers.llm.mock import MockLLMProvider
+from app.providers.speech_to_text.mock import MockSpeechToTextProvider
 from app.providers.translation.mock import MockTranslationProvider
 from app.providers.whatsapp.mock import MockWhatsAppClient
 
@@ -52,6 +54,7 @@ def test_defaults_to_mocks_with_no_env_vars_set():
     assert isinstance(get_image_search_provider(), MockImageSearchProvider)
     assert isinstance(get_ai_detection_provider(), MockAIImageDetectionProvider)
     assert isinstance(get_translation_provider(), MockTranslationProvider)
+    assert isinstance(get_speech_to_text_provider(), MockSpeechToTextProvider)
     assert isinstance(get_whatsapp_client(), MockWhatsAppClient)
 
 
@@ -92,6 +95,16 @@ def test_openai_key_alone_selects_real_openai_provider(monkeypatch):
     reset_providers_for_tests()
 
     assert isinstance(get_llm_provider(), OpenAIProvider)
+
+
+def test_openai_key_selects_real_whisper_provider(monkeypatch):
+    from app.providers.speech_to_text.openai_whisper import OpenAIWhisperProvider
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    get_settings.cache_clear()
+    reset_providers_for_tests()
+
+    assert isinstance(get_speech_to_text_provider(), OpenAIWhisperProvider)
 
 
 def test_whatsapp_requires_both_token_and_phone_id(monkeypatch):
