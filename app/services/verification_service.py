@@ -45,7 +45,7 @@ async def process_incoming(
         logger.warning("rate_limit_exceeded", channel=channel.value)
         raise
 
-    user = await _get_or_create_user(db, channel, external_user_id, preferred_language)
+    user, _ = await get_or_create_user(db, channel, external_user_id, preferred_language)
 
     verification = Verification(
         user_id=user.id, has_image=image_bytes is not None, status=VerificationStatus.processing
@@ -101,9 +101,11 @@ def _is_mock_provider(instance: object) -> bool:
     return type(instance).__name__.startswith("Mock")
 
 
-async def _get_or_create_user(
+async def get_or_create_user(
     db: AsyncSession, channel: Channel, external_user_id: str, preferred_language: Optional[Language]
-) -> User:
+) -> tuple[User, bool]:
+    """Returns (user, is_new) - is_new lets callers (e.g. the WhatsApp
+    webhook) special-case a caller's very first-ever message."""
     lookup_hash = hash_for_lookup(external_user_id)
     result = await db.execute(select(User).where(User.phone_number_hash == lookup_hash))
     user = result.scalar_one_or_none()
@@ -113,7 +115,7 @@ async def _get_or_create_user(
         if preferred_language is not None:
             user.preferred_language = preferred_language
         await db.flush()
-        return user
+        return user, False
 
     user = User(
         phone_number_encrypted=encrypt(external_user_id),
@@ -123,7 +125,7 @@ async def _get_or_create_user(
     )
     db.add(user)
     await db.flush()
-    return user
+    return user, True
 
 
 async def _record_message(

@@ -2,14 +2,17 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.db.base import get_session_factory
 from app.db.session import get_db
 from app.logging_conf import get_logger
 from app.models.enums import Channel, ConfidenceLabel, Language, Verdict
 from app.models.image import Image
 from app.models.verification import Verification
+from app.models.webhook_event import WebhookEvent
 from app.providers.bundle import Providers, build_providers
 from app.security.signature import verify_signature
 from app.services import verification_service
@@ -21,6 +24,17 @@ logger = get_logger(__name__)
 # Only en/ml are supported end-to-end (see app/models/enums.py Language) -
 # any other detected language falls back to English rather than erroring.
 _DETECTED_LANGUAGE_MAP = {"ml": Language.ml, "en": Language.en}
+
+_WELCOME_TEXT = {
+    Language.en: (
+        "Hi! I'm SatyaScan. Forward me a message, image, or video you'd like "
+        "me to fact-check, and I'll look into it."
+    ),
+    Language.ml: (
+        "ഹായ്! ഞാൻ സത്യസ്‌കാൻ ആണ്. നിങ്ങൾക്ക് പരിശോധിക്കേണ്ട സന്ദേശം, ചിത്രം, "
+        "അല്ലെങ്കിൽ വീഡിയോ എനിക്ക് ഫോർവേഡ് ചെയ്യൂ, ഞാൻ അത് പരിശോധിക്കാം."
+    ),
+}
 
 _VERDICT_LABELS = {
     Language.en: {
@@ -92,6 +106,14 @@ def _image_verdict_text(ai_generated_probability: Optional[float], language: Lan
 
 
 async def _build_reply_text(db: AsyncSession, verification: Verification, language: Language) -> str:
+    if verification.verdict is None:
+        # No verdict means the pipeline took its chitchat/unclear
+        # short-circuit (see _short_circuit in app/agents/pipeline.py) - that
+        # path already produces a plain, ready-to-send reply, so wrapping it
+        # in the Verdict/Confidence template would show a nonsensical
+        # "Verdict: UNVERIFIABLE, Confidence: 0/100" for a greeting.
+        return verification.explanation_text or ""
+
     labels = _LABELS[language]
     confidence_pct = round((verification.confidence_score or 0.0) * 100)
     lines = [
@@ -158,10 +180,47 @@ async def receive_webhook(
     return {"status": "received"}
 
 
+async def _claim_message(message_id: Optional[str]) -> bool:
+    """Atomically claims message_id in its own immediately-committed
+    transaction, before the (potentially slow) verification pipeline runs.
+    Returns False if it was already claimed - WhatsApp delivers webhooks
+    at-least-once and retries on a slow response, which without this produced
+    duplicate replies to a single inbound message."""
+    if not message_id:
+        return True
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        session.add(WebhookEvent(external_message_id=message_id))
+        try:
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            return False
+    return True
+
+
 async def _handle_message(message: dict, db: AsyncSession, providers: Providers) -> None:
     from_number = message.get("from")
     message_id = message.get("id")
     if from_number is None:
+        return
+
+    if not await _claim_message(message_id):
+        logger.info("webhook_duplicate_message_ignored", message_id=message_id)
+        return
+
+    _, is_new_user = await verification_service.get_or_create_user(db, Channel.whatsapp, from_number, None)
+    if is_new_user:
+        # Committed immediately (rather than waiting for get_db()'s
+        # end-of-request commit) so this user is durably on record even if a
+        # later message in the same webhook payload raises and rolls back the
+        # shared session - mirrors the reasoning behind _claim_message above.
+        await db.commit()
+        if message_id:
+            await providers.whatsapp.mark_as_read(message_id)
+        peek_text = (message.get("text") or {}).get("body") if message.get("type") == "text" else None
+        welcome_language = await _detect_language(providers, peek_text) or Language.en
+        await providers.whatsapp.send_text_message(from_number, _WELCOME_TEXT[welcome_language])
         return
 
     text: Optional[str] = None

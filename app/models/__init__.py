@@ -8,6 +8,7 @@ from app.models.message import Message
 from app.models.source import Source
 from app.models.user import User
 from app.models.verification import Verification
+from app.models.webhook_event import WebhookEvent
 
 __all__ = [
     "Base",
@@ -20,4 +21,5 @@ __all__ = [
     "Source",
     "User",
     "Verification",
+    "WebhookEvent",
 ]

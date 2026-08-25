@@ -77,22 +77,30 @@ async def test_webhook_and_simulator_produce_equivalent_verdict_for_same_claim(a
     client, _ = app_client
     claim = "The moon landing was staged in a studio"
 
-    webhook_payload = {
-        "entry": [
-            {
-                "changes": [
-                    {
-                        "value": {
-                            "messages": [
-                                {"from": "+910000000001", "id": "wamid.PARITY", "type": "text", "text": {"body": claim}}
-                            ]
+    def _payload(text: str, message_id: str) -> dict:
+        return {
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "messages": [
+                                    {"from": "+910000000001", "id": message_id, "type": "text", "text": {"body": text}}
+                                ]
+                            }
                         }
-                    }
-                ]
-            }
-        ]
-    }
-    webhook_response = await client.post("/webhook/whatsapp", json=webhook_payload)
+                    ]
+                }
+            ]
+        }
+
+    # Prime the user: their very first message only gets the welcome text
+    # (see test_first_ever_message_gets_welcome_text_and_no_verification in
+    # test_webhook_flow.py) and doesn't run the pipeline, so it wouldn't
+    # produce a Verification to compare against the simulator path.
+    await client.post("/webhook/whatsapp", json=_payload("hi", "wamid.PRIME"))
+
+    webhook_response = await client.post("/webhook/whatsapp", json=_payload(claim, "wamid.PARITY"))
     assert webhook_response.status_code == 200
 
     simulator_response = await client.post(
