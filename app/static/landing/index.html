@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SatyaScan — AI Fact-Checking on WhatsApp</title>
+<meta name="description" content="Forward a claim, image, video, or voice note to SatyaScan on WhatsApp and get back a verdict, a confidence score, and a plain-language explanation.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #16171a; --muted: #5c5f66; --border: #e6e7eb; --card: #f6f7f9;
+    --accent: #1fae5a; --accent-fg: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #101113; --fg: #eef0f2; --muted: #a1a5ac; --border: #26282c; --card: #18191c; --accent: #29c46a; --accent-fg: #08110a; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 56px 20px 64px; text-align: center; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; margin-bottom: 22px;
+  }
+  .badge svg { width: 14px; height: 14px; }
+  h1 { font-size: 2rem; margin: 0 0 10px; letter-spacing: -0.02em; }
+  .tagline { color: var(--muted); font-size: 1.05rem; max-width: 420px; margin: 0 auto 32px; }
+  .cta {
+    display: inline-flex; align-items: center; gap: 10px; background: var(--accent); color: var(--accent-fg);
+    font-weight: 600; font-size: 1.05rem; text-decoration: none; padding: 14px 26px; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  }
+  .cta svg { width: 20px; height: 20px; }
+  .number { color: var(--muted); font-size: 0.85rem; margin-top: 10px; }
+
+  .qr-section { margin: 44px 0 40px; }
+  .qr-card {
+    display: inline-block; background: #ffffff; padding: 16px; border-radius: 16px;
+    border: 1px solid var(--border); box-shadow: 0 2px 14px rgba(0,0,0,0.06);
+  }
+  .qr-card svg { display: block; width: 190px; height: 190px; }
+  .qr-hint { color: var(--muted); font-size: 0.85rem; margin-top: 12px; }
+
+  .steps { text-align: left; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin: 0 0 36px; }
+  .steps h2 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 14px; }
+  .steps ol { margin: 0; padding-left: 1.2em; }
+  .steps li { margin-bottom: 10px; }
+  .steps li:last-child { margin-bottom: 0; }
+
+  footer { color: var(--muted); font-size: 0.85rem; }
+  footer a { color: inherit; }
+  footer .links { margin-top: 6px; }
+  footer .links a { margin: 0 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 3 7v6c0 5 3.8 8.4 9 9 5.2-.6 9-4 9-9V7l-9-5Z"/><path d="m9 12 2 2 4-4"/></svg>
+    AI Verification Engine
+  </div>
+
+  <h1>SatyaScan</h1>
+  <p class="tagline">Forward a claim, image, video, or voice note on WhatsApp — get back a verdict, a confidence score, and a plain-language explanation.</p>
+
+  <a class="cta" href="https://wa.me/919074871768?text=Hi" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.39 1.26 4.81L2 22l5.42-1.36a9.87 9.87 0 0 0 4.62 1.15h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm0 1.67c2.19 0 4.25.85 5.79 2.4a8.18 8.18 0 0 1 2.41 5.84c0 4.55-3.7 8.24-8.24 8.24a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.09.79.83-3.02-.2-.31a8.15 8.15 0 0 1-1.27-4.37c0-4.55 3.71-8.24 8.26-8.24Zm-4.42 4.6c-.16 0-.42.06-.64.3-.22.24-.85.83-.85 2.03s.87 2.36.99 2.52c.12.16 1.7 2.68 4.19 3.68 2.07.83 2.49.66 2.94.62.45-.04 1.45-.59 1.65-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28-.24-.12-1.45-.71-1.67-.8-.22-.08-.39-.12-.55.13-.16.24-.63.79-.78.96-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.35-1.67-.14-.24-.02-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.55-1.34-.76-1.83-.2-.48-.4-.42-.55-.42Z"/></svg>
+    Chat with SatyaScan
+  </a>
+  <div class="number">+91 90748 71768 · opens WhatsApp</div>
+
+  <div class="qr-section">
+    <div class="qr-card">
+      <svg viewBox="0 0 33 33" xmlns="http://www.w3.org/2000/svg"><path transform="scale(1.0645)" stroke="#111" d="M1 1.5h7m3 0h1m1 0h4m1 0h1m2 0h1m1 0h7m-29 1h1m5 0h1m1 0h3m4 0h1m2 0h1m1 0h1m1 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m2 0h2m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h5m3 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h1m1 0h3m3 0h1m2 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m2 0h1m1 0h4m2 0h1m4 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-21 1h1m2 0h3m-14 1h1m5 0h1m1 0h2m1 0h2m1 0h2m1 0h6m2 0h3m-26 1h1m5 0h1m2 0h1m2 0h1m1 0h1m2 0h2m2 0h2m1 0h2m-27 1h2m1 0h4m2 0h3m2 0h3m5 0h2m-25 1h1m1 0h3m2 0h1m1 0h2m3 0h1m3 0h1m1 0h2m1 0h1m1 0h1m-25 1h2m1 0h3m1 0h1m1 0h2m1 0h2m1 0h1m1 0h2m1 0h3m4 0h1m-26 1h3m1 0h1m1 0h2m1 0h6m1 0h1m2 0h3m2 0h2m-29 1h5m1 0h1m1 0h1m1 0h1m1 0h4m2 0h1m1 0h1m1 0h1m2 0h2m-27 1h1m1 0h4m3 0h2m2 0h2m1 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h1m-29 1h1m3 0h8m2 0h1m2 0h2m1 0h2m3 0h2m-27 1h2m2 0h2m1 0h1m8 0h2m1 0h1m1 0h2m1 0h1m1 0h3m-29 1h2m1 0h1m2 0h1m3 0h1m1 0h4m3 0h3m2 0h2m2 0h1m-29 1h1m1 0h2m1 0h1m1 0h5m2 0h1m1 0h1m4 0h1m2 0h1m-25 1h1m3 0h1m1 0h2m1 0h4m3 0h2m2 0h5m1 0h3m-21 1h3m2 0h1m1 0h2m2 0h2m3 0h2m-26 1h7m2 0h1m1 0h5m3 0h2m1 0h1m1 0h3m-27 1h1m5 0h1m3 0h1m2 0h1m2 0h1m1 0h1m1 0h1m3 0h1m3 0h1m-29 1h1m1 0h3m1 0h1m2 0h2m2 0h1m1 0h1m3 0h7m1 0h2m-29 1h1m1 0h3m1 0h1m3 0h4m1 0h2m1 0h2m5 0h2m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h2m4 0h1m4 0h1m1 0h6m-28 1h1m5 0h1m2 0h1m3 0h2m1 0h1m2 0h1m2 0h2m1 0h2m1 0h1m-29 1h7m1 0h1m2 0h4m1 0h2m5 0h4"/></svg>
+    </div>
+    <div class="qr-hint">Scan to open a chat directly</div>
+  </div>
+
+  <div class="steps">
+    <h2>How it works</h2>
+    <ol>
+      <li>Forward a suspicious message, image, video, or voice note to the number above.</li>
+      <li>SatyaScan checks it against live web search, published fact-checks, and (for images/video) AI-generation detection.</li>
+      <li>You get back a verdict, a confidence score out of 100, and a short explanation — in English or Malayalam.</li>
+    </ol>
+  </div>
+
+  <footer>
+    SatyaScan — AI Verification Engine
+    <div class="links"><a href="/privacy">Privacy Policy</a>·<a href="/terms">Terms of Service</a></div>
+  </footer>
+</div>
+</body>
+</html>

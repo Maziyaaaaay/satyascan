@@ -17,3 +17,12 @@ async def test_terms_of_service_is_served(app_client):
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert "Terms of Service" in response.text
+
+
+@pytest.mark.asyncio
+async def test_landing_page_is_served_with_whatsapp_link(app_client):
+    client, _ = app_client
+    response = await client.get("/")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "https://wa.me/919074871768" in response.text
