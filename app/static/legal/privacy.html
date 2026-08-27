@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — SatyaScan</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #5a5a5a; --accent: #0f6fd6; --border: #e3e3e3; --card: #f7f8fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121212; --fg: #eaeaea; --muted: #a3a3a3; --accent: #6db3ff; --border: #2a2a2a; --card: #1a1a1c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 20px 96px; }
+  h1 { font-size: 1.7rem; margin-bottom: 4px; }
+  .updated { color: var(--muted); font-size: 0.9rem; margin-bottom: 32px; }
+  h2 { font-size: 1.15rem; margin-top: 2.2em; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  p, li { color: var(--fg); }
+  ul { padding-left: 1.3em; }
+  li { margin-bottom: 0.5em; }
+  a { color: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 1em 0; font-size: 0.95rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1em 0; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  footer { margin-top: 3em; color: var(--muted); font-size: 0.85rem; }
+  code { background: var(--card); padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Privacy Policy</h1>
+  <div class="updated">SatyaScan · Effective 27 August 2026</div>
+
+  <p>SatyaScan ("we", "the service") is a WhatsApp-based fact-checking assistant. You send it a claim, message,
+  image, video, or voice note, and it replies with a verdict, a confidence score, and an explanation. This page
+  describes what data we collect when you use it and how it's handled.</p>
+
+  <p>SatyaScan is currently operated by an independent individual developer, not a registered company.</p>
+
+  <h2>What we collect</h2>
+  <table>
+    <tr><th>Data</th><th>How it's handled</th></tr>
+    <tr><td>Your WhatsApp phone number</td><td>Encrypted at rest. We also keep a one-way hash of it so we can recognize repeat conversations without storing the plaintext number in most of our systems.</td></tr>
+    <tr><td>Message text you send</td><td>Used to run the fact-check, then only a one-way hash is kept by default — not the original text — so we can detect duplicates. The extracted claim and our verdict/confidence/explanation are kept as your fact-check history.</td></tr>
+    <tr><td>Images you send</td><td>Processed in memory to check for AI-generation and search for prior matches, then discarded. Only a hash and a short summary (e.g. "likely AI-generated") are kept — not the image itself.</td></tr>
+    <tr><td>Videos you send</td><td>A single frame and the audio track are extracted for analysis (see below); the video file itself is not stored.</td></tr>
+    <tr><td>Voice notes / audio</td><td>Transcribed to text to extract the claim, then discarded — the audio itself is not stored.</td></tr>
+  </table>
+
+  <div class="card">
+    <strong>We do not sell your data.</strong> We do not store the plain content of your messages by default —
+    only a cryptographic hash, plus the claim and result of each fact-check.
+  </div>
+
+  <h2>Third-party services we send data to</h2>
+  <p>To produce a verdict, the text/image/audio you send is passed to the following services as part of processing.
+  Each is bound by its own provider's privacy policy:</p>
+  <ul>
+    <li><strong>Meta / WhatsApp Business Platform</strong> — the messaging channel itself; Meta processes all message delivery.</li>
+    <li><strong>Google Gemini</strong> — reasons over your claim and the evidence gathered to produce a verdict.</li>
+    <li><strong>Google Fact Check Tools API</strong> — searched for existing published fact-checks relevant to your claim.</li>
+    <li><strong>Google Cloud Vision</strong> — used for image text extraction (OCR) and reverse image search.</li>
+    <li><strong>Google Translate</strong> — used for language detection and translation (English/Malayalam).</li>
+    <li><strong>Sightengine</strong> — analyzes images to estimate whether they are AI-generated.</li>
+    <li><strong>Serper.dev</strong> — used to run a live web search for evidence on recent claims.</li>
+    <li><strong>OpenAI (Whisper)</strong> — used to transcribe voice notes and video audio into text.</li>
+  </ul>
+  <p>None of these providers receive your phone number in plaintext — only the message content needed to perform
+  their specific task.</p>
+
+  <h2>Data retention</h2>
+  <ul>
+    <li>Message content: kept only as a one-way hash, unless you've explicitly given consent to a longer retention
+    period, in which case a short excerpt may also be kept.</li>
+    <li>Images/video/audio: discarded after processing; only a hash and analysis summary remain.</li>
+    <li>Fact-check history (claim, verdict, confidence, explanation): kept so you can be shown consistent results
+    for a claim you or others have already asked about.</li>
+  </ul>
+
+  <h2>Your rights</h2>
+  <p>You can ask us to delete your data or stop processing your messages at any time by emailing
+  <a href="mailto:mazitestsai@gmail.com">mazitestsai@gmail.com</a>. We'll act on deletion requests within a
+  reasonable time.</p>
+
+  <h2>Children's privacy</h2>
+  <p>SatyaScan is not directed at children and we do not knowingly collect data from anyone under 13.</p>
+
+  <h2>Security</h2>
+  <p>Phone numbers are encrypted at rest. Message content is not stored in plaintext by default. Access to the
+  underlying data store is limited to the operator.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If this policy changes materially, the "Effective" date at the top of this page will be updated.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or data requests: <a href="mailto:mazitestsai@gmail.com">mazitestsai@gmail.com</a></p>
+
+  <footer>SatyaScan — AI Verification Engine · <a href="/terms">Terms of Service</a></footer>
+</div>
+</body>
+</html>
