@@ -117,9 +117,27 @@ class SpeechToTextProvider(ABC):
     async def transcribe(self, audio_bytes: bytes, mime_type: Optional[str] = None) -> str: ...
 
 
+class InteractiveButton(BaseModel):
+    """One WhatsApp quick-reply button. WhatsApp caps titles at 20
+    characters and a message at 3 buttons - callers should keep titles
+    short (an emoji + a couple of words); real-provider implementations
+    truncate defensively rather than reject a longer title outright."""
+
+    id: str
+    title: str
+
+
 class WhatsAppClient(ABC):
     @abstractmethod
     async def send_text_message(self, to: str, body: str) -> str: ...
+
+    @abstractmethod
+    async def send_interactive_buttons(self, to: str, body: str, buttons: List[InteractiveButton]) -> str:
+        """Send `body` with up to 3 native WhatsApp quick-reply buttons
+        attached. The button click comes back on a later webhook as a
+        message of type "interactive" with interactive.button_reply.id set
+        to the id given here."""
+        ...
 
     @abstractmethod
     async def download_media(self, media_id: str) -> bytes: ...

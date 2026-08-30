@@ -37,6 +37,11 @@ class ImageAnalysisResult(BaseModel):
     reverse_matches: List[ReverseImageMatch] = Field(default_factory=list)
     ai_generated_probability: Optional[float] = None
     ai_generated_reasoning: Optional[str] = None
+    c2pa_has_manifest: bool = False
+    c2pa_generator: Optional[str] = None
+    c2pa_digital_source_type: Optional[str] = None
+    c2pa_is_ai_indicated: bool = False
+    c2pa_summary: Optional[str] = None
 
 
 class RankedEvidence(BaseModel):

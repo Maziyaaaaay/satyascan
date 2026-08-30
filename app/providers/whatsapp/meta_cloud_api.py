@@ -1,11 +1,17 @@
+from typing import List
+
 import httpx
 
-from app.providers.base import WhatsAppClient
+from app.providers.base import InteractiveButton, WhatsAppClient
 
 # Meta deprecates old Graph API versions on a rolling ~2-year window - check
 # https://developers.facebook.com/docs/graph-api/changelog if requests start
 # failing with an "unsupported version" error and bump this.
 GRAPH_API_BASE = "https://graph.facebook.com/v23.0"
+
+# WhatsApp's own hard limits for interactive reply-button messages.
+_MAX_BUTTONS = 3
+_MAX_BUTTON_TITLE_LEN = 20
 
 
 class MetaWhatsAppClient(WhatsAppClient):
@@ -24,6 +30,32 @@ class MetaWhatsAppClient(WhatsAppClient):
             "to": to,
             "type": "text",
             "text": {"body": body},
+        }
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(url, json=payload, headers=self._headers)
+            response.raise_for_status()
+            data = response.json()
+        return data["messages"][0]["id"]
+
+    async def send_interactive_buttons(self, to: str, body: str, buttons: List[InteractiveButton]) -> str:
+        url = f"{GRAPH_API_BASE}/{self._phone_number_id}/messages"
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {"text": body},
+                "action": {
+                    "buttons": [
+                        {
+                            "type": "reply",
+                            "reply": {"id": button.id, "title": button.title[:_MAX_BUTTON_TITLE_LEN]},
+                        }
+                        for button in buttons[:_MAX_BUTTONS]
+                    ]
+                },
+            },
         }
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(url, json=payload, headers=self._headers)

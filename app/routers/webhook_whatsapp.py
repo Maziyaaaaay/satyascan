@@ -9,13 +9,14 @@ from app.config import get_settings
 from app.db.base import get_session_factory
 from app.db.session import get_db
 from app.logging_conf import get_logger
-from app.models.enums import Channel, ConfidenceLabel, Language, Verdict
+from app.models.enums import Channel, Language
 from app.models.image import Image
 from app.models.verification import Verification
 from app.models.webhook_event import WebhookEvent
+from app.providers.base import InteractiveButton
 from app.providers.bundle import Providers, build_providers
 from app.security.signature import verify_signature
-from app.services import verification_service, video_processing
+from app.services import report_formatting, verification_service, video_processing
 from app.services.rate_limit_service import RateLimitExceeded
 
 router = APIRouter()
@@ -36,54 +37,33 @@ _WELCOME_TEXT = {
     ),
 }
 
-_VERDICT_LABELS = {
-    Language.en: {
-        (Verdict.true, True): "TRUE",
-        (Verdict.true, False): "LIKELY TRUE",
-        (Verdict.false, True): "FALSE",
-        (Verdict.false, False): "LIKELY FALSE",
-        (Verdict.misleading, True): "MISLEADING",
-        (Verdict.misleading, False): "MISLEADING",
-        (Verdict.unverifiable, True): "UNVERIFIABLE",
-        (Verdict.unverifiable, False): "UNVERIFIABLE",
-        (Verdict.satire, True): "SATIRE",
-        (Verdict.satire, False): "SATIRE",
-    },
-    Language.ml: {
-        (Verdict.true, True): "ശരി",
-        (Verdict.true, False): "മിക്കവാറും ശരി",
-        (Verdict.false, True): "തെറ്റ്",
-        (Verdict.false, False): "മിക്കവാറും തെറ്റ്",
-        (Verdict.misleading, True): "തെറ്റിദ്ധരിപ്പിക്കുന്നത്",
-        (Verdict.misleading, False): "തെറ്റിദ്ധരിപ്പിക്കുന്നത്",
-        (Verdict.unverifiable, True): "സ്ഥിരീകരിക്കാൻ കഴിയില്ല",
-        (Verdict.unverifiable, False): "സ്ഥിരീകരിക്കാൻ കഴിയില്ല",
-        (Verdict.satire, True): "ആക്ഷേപഹാസ്യം",
-        (Verdict.satire, False): "ആക്ഷേപഹാസ്യം",
-    },
+_HOW_IT_WORKS_TEXT = {
+    Language.en: (
+        "*How SatyaScan works:*\n"
+        "1. Forward a suspicious message, image, or video here.\n"
+        "2. I check it against live web search, published fact-checks, and "
+        "(for images/video) AI-generation and content-provenance signals.\n"
+        "3. You get a verdict, a confidence score, and a plain-language "
+        "explanation - in English or Malayalam."
+    ),
+    Language.ml: (
+        "*സത്യസ്‌കാൻ എങ്ങനെ പ്രവർത്തിക്കുന്നു:*\n"
+        "1. സംശയാസ്‌പദമായ സന്ദേശം, ചിത്രം, അല്ലെങ്കിൽ വീഡിയോ ഇവിടെ ഫോർവേഡ് ചെയ്യുക.\n"
+        "2. ലൈവ് വെബ് സെർച്ച്, പ്രസിദ്ധീകരിച്ച ഫാക്ട്-ചെക്കുകൾ, കൂടാതെ "
+        "(ചിത്രം/വീഡിയോയ്ക്ക്) AI-നിർമ്മാണ, ഉറവിട സൂചനകൾ എന്നിവ ഉപയോഗിച്ച് ഞാൻ ഇത് പരിശോധിക്കും.\n"
+        "3. നിങ്ങൾക്ക് ഒരു വിധി, ഒരു വിശ്വാസ്യതാ സ്‌കോർ, ലളിതമായ ഒരു വിശദീകരണം എന്നിവ ലഭിക്കും - "
+        "ഇംഗ്ലീഷിലോ മലയാളത്തിലോ."
+    ),
 }
 
-_LABELS = {
-    Language.en: {"verdict": "Verdict", "confidence": "Confidence", "summary": "Summary", "image": "Image check"},
-    Language.ml: {
-        "verdict": "വിധി",
-        "confidence": "വിശ്വാസ്യത",
-        "summary": "ചുരുക്കം",
-        "image": "ചിത്ര പരിശോധന",
-    },
+_BUTTON_LABELS = {
+    Language.en: {"check_another": "🔁 Check another", "how_it_works": "❔ How it works"},
+    Language.ml: {"check_another": "🔁 വീണ്ടും പരിശോധിക്കൂ", "how_it_works": "❔ എങ്ങനെ പ്രവർത്തിക്കുന്നു"},
 }
 
-_IMAGE_VERDICT_TEXT = {
-    Language.en: {
-        "ai": "This image appears to be AI-generated or fabricated.",
-        "real": "This image appears to be a real, unedited photo.",
-        "unsure": "Could not confidently determine if this image is AI-generated.",
-    },
-    Language.ml: {
-        "ai": "ഈ ചിത്രം AI ഉപയോഗിച്ച് നിർമ്മിച്ചതോ കൃത്രിമമായി ഉണ്ടാക്കിയതോ ആകാം.",
-        "real": "ഈ ചിത്രം യഥാർത്ഥവും തിരുത്തപ്പെടാത്തതുമായ ഫോട്ടോ ആണെന്ന് തോന്നുന്നു.",
-        "unsure": "ഈ ചിത്രം AI നിർമ്മിതമാണോ എന്ന് ഉറപ്പിച്ച് പറയാൻ കഴിയില്ല.",
-    },
+_CHECK_ANOTHER_PROMPT = {
+    Language.en: "Sure - forward me the claim, image, or video you'd like checked.",
+    Language.ml: "തീർച്ചയായും - പരിശോധിക്കേണ്ട അവകാശവാദം, ചിത്രം, അല്ലെങ്കിൽ വീഡിയോ ഫോർവേഡ് ചെയ്യൂ.",
 }
 
 # Last-resort reply when the verification pipeline itself throws (e.g. every
@@ -98,22 +78,36 @@ _PROCESSING_ERROR_TEXT = {
 }
 
 
-def _verdict_label(verdict: Optional[Verdict], confidence_label: Optional[ConfidenceLabel], language: Language) -> str:
-    if verdict is None:
-        return _VERDICT_LABELS[language][(Verdict.unverifiable, True)]
-    is_high_confidence = confidence_label == ConfidenceLabel.high
-    return _VERDICT_LABELS[language][(verdict, is_high_confidence)]
+# WhatsApp caps an interactive message's body at 1024 characters (a plain
+# text message allows up to 4096) - a long explanation could exceed that, so
+# _send_reply falls back to a plain text send rather than let the Graph API
+# call fail outright.
+_INTERACTIVE_BODY_MAX_LEN = 1024
 
 
-def _image_verdict_text(ai_generated_probability: Optional[float], language: Language) -> str:
-    texts = _IMAGE_VERDICT_TEXT[language]
-    if ai_generated_probability is None:
-        return texts["unsure"]
-    if ai_generated_probability >= 0.6:
-        return texts["ai"]
-    if ai_generated_probability <= 0.3:
-        return texts["real"]
-    return texts["unsure"]
+async def _send_reply(providers: Providers, to: str, body: str, buttons: list) -> None:
+    if len(body) > _INTERACTIVE_BODY_MAX_LEN:
+        await providers.whatsapp.send_text_message(to, body)
+        return
+    await providers.whatsapp.send_interactive_buttons(to, body, buttons)
+
+
+def _reply_buttons(language: Language) -> list:
+    labels = _BUTTON_LABELS[language]
+    return [
+        InteractiveButton(id="check_another", title=labels["check_another"]),
+        InteractiveButton(id="how_it_works", title=labels["how_it_works"]),
+    ]
+
+
+def _c2pa_image_line(image: Image, language: Language) -> Optional[str]:
+    if not image.c2pa_has_manifest:
+        return None
+    # The service's own summary text is English-only for now (see
+    # app.services.c2pa_service) - shown as-is even in a Malayalam reply
+    # rather than silently dropped, since it's a materially stronger signal
+    # than the perceptual line below it.
+    return f"📎 {image.c2pa_summary}" if image.c2pa_summary else None
 
 
 async def _build_reply_text(db: AsyncSession, verification: Verification, language: Language) -> str:
@@ -121,30 +115,33 @@ async def _build_reply_text(db: AsyncSession, verification: Verification, langua
         # No verdict means the pipeline took its chitchat/unclear
         # short-circuit (see _short_circuit in app/agents/pipeline.py) - that
         # path already produces a plain, ready-to-send reply, so wrapping it
-        # in the Verdict/Confidence template would show a nonsensical
-        # "Verdict: UNVERIFIABLE, Confidence: 0/100" for a greeting.
+        # in the structured verdict template would show a nonsensical
+        # "❓ UNVERIFIABLE - 0% confidence" for a greeting.
         return verification.explanation_text or ""
 
-    labels = _LABELS[language]
-    confidence_pct = round((verification.confidence_score or 0.0) * 100)
-    lines = [
-        f"{labels['verdict']}: {_verdict_label(verification.verdict, verification.confidence_label, language)}",
-        f"{labels['confidence']}: {confidence_pct}/100",
-        "",
-        f"{labels['summary']}: {verification.explanation_text or ''}".strip(),
-    ]
-
+    image_lines = None
     if verification.has_image:
         image_result = await db.execute(select(Image).where(Image.verification_id == verification.id))
         image = image_result.scalar_one_or_none()
         if image is not None:
-            image_line = _image_verdict_text(image.ai_generated_probability, language)
-            if image.ai_generated_reasoning:
-                image_line = f"{image_line} {image.ai_generated_reasoning}"
-            lines.append("")
-            lines.append(f"{labels['image']}: {image_line}")
+            image_lines = [
+                line
+                for line in (
+                    _c2pa_image_line(image, language),
+                    report_formatting.perceptual_image_line(image.ai_generated_probability, language),
+                )
+                if line
+            ]
 
-    return "\n".join(lines).strip()
+    return report_formatting.build_verdict_report(
+        language=language,
+        verdict=verification.verdict,
+        confidence_score=verification.confidence_score,
+        confidence_label=verification.confidence_label,
+        claim_text=verification.claim_text,
+        explanation_text=verification.explanation_text,
+        image_lines=image_lines,
+    )
 
 
 def get_providers() -> Providers:
@@ -220,7 +217,7 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
         logger.info("webhook_duplicate_message_ignored", message_id=message_id)
         return
 
-    _, is_new_user = await verification_service.get_or_create_user(db, Channel.whatsapp, from_number, None)
+    user, is_new_user = await verification_service.get_or_create_user(db, Channel.whatsapp, from_number, None)
     if is_new_user:
         # Committed immediately (rather than waiting for get_db()'s
         # end-of-request commit) so this user is durably on record even if a
@@ -231,13 +228,33 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
             await providers.whatsapp.mark_as_read(message_id)
         peek_text = (message.get("text") or {}).get("body") if message.get("type") == "text" else None
         welcome_language = await _detect_language(providers, peek_text) or Language.en
-        await providers.whatsapp.send_text_message(from_number, _WELCOME_TEXT[welcome_language])
+        await _send_reply(providers, from_number, _WELCOME_TEXT[welcome_language], _reply_buttons(welcome_language))
+        return
+
+    message_type = message.get("type")
+
+    if message_type == "interactive":
+        # A tap on one of our own quick-reply buttons, not new content to
+        # verify - answer it directly and don't run the verification
+        # pipeline (there is no claim/image here to check).
+        if message_id:
+            await providers.whatsapp.mark_as_read(message_id)
+        button_id = ((message.get("interactive") or {}).get("button_reply") or {}).get("id")
+        button_language = user.preferred_language or Language.en
+        if button_id == "how_it_works":
+            await _send_reply(
+                providers, from_number, _HOW_IT_WORKS_TEXT[button_language], _reply_buttons(button_language)
+            )
+        else:
+            # Unrecognized button ids fall back to the same "go ahead and
+            # forward something" prompt as "check_another" - there is no
+            # third option to distinguish today.
+            await providers.whatsapp.send_text_message(from_number, _CHECK_ANOTHER_PROMPT[button_language])
         return
 
     text: Optional[str] = None
     image_bytes: Optional[bytes] = None
 
-    message_type = message.get("type")
     if message_type == "text":
         text = (message.get("text") or {}).get("body")
     elif message_type == "image":
@@ -304,7 +321,12 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
 
     reply_language = verification.explanation_language or preferred_language or Language.en
     reply_text = await _build_reply_text(db, verification, reply_language)
-    await providers.whatsapp.send_text_message(from_number, reply_text or "Sorry, I couldn't process that message.")
+    await _send_reply(
+        providers,
+        from_number,
+        reply_text or "Sorry, I couldn't process that message.",
+        _reply_buttons(reply_language),
+    )
 
 
 async def _detect_language(providers: Providers, text: Optional[str]) -> Optional[Language]:

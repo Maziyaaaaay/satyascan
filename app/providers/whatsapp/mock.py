@@ -1,7 +1,7 @@
 import uuid
 from typing import List
 
-from app.providers.base import WhatsAppClient
+from app.providers.base import InteractiveButton, WhatsAppClient
 
 _MOCK_IMAGE_BYTES = bytes.fromhex(
     "89504e470d0a1a0a0000000d494844520000000100000001080600000"
@@ -20,6 +20,18 @@ class MockWhatsAppClient(WhatsAppClient):
     async def send_text_message(self, to: str, body: str) -> str:
         message_id = f"mock-wamid-{uuid.uuid4().hex[:16]}"
         self.sent_messages.append({"to": to, "body": body, "message_id": message_id})
+        return message_id
+
+    async def send_interactive_buttons(self, to: str, body: str, buttons: List[InteractiveButton]) -> str:
+        message_id = f"mock-wamid-{uuid.uuid4().hex[:16]}"
+        self.sent_messages.append(
+            {
+                "to": to,
+                "body": body,
+                "message_id": message_id,
+                "buttons": [{"id": button.id, "title": button.title} for button in buttons],
+            }
+        )
         return message_id
 
     async def download_media(self, media_id: str) -> bytes:

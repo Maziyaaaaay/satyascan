@@ -1,6 +1,6 @@
 import pytest
 
-from app.providers.base import WhatsAppClient
+from app.providers.base import InteractiveButton, WhatsAppClient
 from app.providers.whatsapp.mock import MockWhatsAppClient
 
 
@@ -15,6 +15,19 @@ async def test_send_text_message_records_and_returns_id():
     message_id = await client.send_text_message(to="+911234567890", body="Verdict: False")
     assert message_id
     assert client.sent_messages == [{"to": "+911234567890", "body": "Verdict: False", "message_id": message_id}]
+
+
+@pytest.mark.asyncio
+async def test_send_interactive_buttons_records_body_and_buttons():
+    client = MockWhatsAppClient()
+    buttons = [InteractiveButton(id="check_another", title="🔁 Check another")]
+    message_id = await client.send_interactive_buttons(to="+911234567890", body="Verdict text", buttons=buttons)
+    assert message_id
+    assert len(client.sent_messages) == 1
+    sent = client.sent_messages[0]
+    assert sent["to"] == "+911234567890"
+    assert sent["body"] == "Verdict text"
+    assert sent["buttons"] == [{"id": "check_another", "title": "🔁 Check another"}]
 
 
 @pytest.mark.asyncio
