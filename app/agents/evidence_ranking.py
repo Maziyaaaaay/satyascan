@@ -28,7 +28,18 @@ def _domain(url: Optional[str]) -> Optional[str]:
 
 
 async def run(state: PipelineState, providers: Providers) -> PipelineState:
-    query_text = state.claims[0].normalized_text if state.claims else (state.input_text or "")
+    # An image sent with no caption and nothing extracted via OCR leaves
+    # both input_text and every claim empty - falling back to "" here used
+    # to reach providers.llm.embed() with an empty string, which Gemini's
+    # embed_content rejects outright ("'content' argument must not be
+    # empty"), crashing the whole verification. OCR text is a reasonable
+    # stand-in query when there's no caption; "image content" is the last
+    # resort so embed() is never called with nothing at all.
+    if state.claims:
+        query_text = state.claims[0].normalized_text
+    else:
+        ocr_text = state.image_analysis.ocr_text if state.image_analysis else None
+        query_text = state.input_text or ocr_text or "image content"
     fact_checks = state.search.fact_checks if state.search else []
     image_matches = state.image_analysis.reverse_matches if state.image_analysis else []
 
