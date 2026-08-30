@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
+from app.logging_conf import get_logger
 from app.models.enums import Channel, Language
 from app.models.evidence import Evidence
 from app.models.image import Image
@@ -18,6 +19,7 @@ from app.services import verification_service
 from app.services.rate_limit_service import RateLimitExceeded
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 _STATIC_DIR = Path(__file__).parent.parent / "static" / "simulator"
 
@@ -81,6 +83,11 @@ async def simulator_message(
     except RateLimitExceeded:
         return SimulatorMessageResponse(
             explanation="You're sending messages too quickly - please wait a moment and try again."
+        )
+    except Exception:
+        logger.exception("verification_pipeline_failed", channel=Channel.simulator.value)
+        return SimulatorMessageResponse(
+            explanation="Sorry, I ran into a problem checking that. Please try again in a moment."
         )
 
     evidence_result = await db.execute(

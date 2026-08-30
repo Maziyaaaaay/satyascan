@@ -3,13 +3,26 @@ from typing import List, Optional, Type
 
 from pydantic import BaseModel
 
+from app.logging_conf import get_logger
 from app.providers.base import LLMProvider, LLMResponse
 from app.providers.llm._gemini_schema import to_gemini_schema
 
+logger = get_logger(__name__)
+
 # "-latest" alias so this doesn't silently break again next time Google
 # retires a dated model (gemini-1.5-flash was retired between when this
-# adapter was first written and when it was first tested against a live key).
-DEFAULT_MODEL = "gemini-flash-latest"
+# adapter was first written and when it was first tested against a live
+# key). IMPORTANT: use the "-lite" latest alias, not plain "gemini-flash-
+# latest" - confirmed live that "gemini-flash-latest" now resolves to a
+# "thinking" model that takes 16-20s+ even for a trivial one-word prompt
+# (it returns a hidden `thoughtSignature` block before the answer), which
+# blew past REQUEST_TIMEOUT_SECONDS on every real call and silently forced
+# every single message onto the OpenAI fallback - confirmed as the root
+# cause of a ~20s-then-no-reply production incident. "-lite" responded in
+# ~1.2s in the same test. If this regresses again, re-run the latency check
+# against https://generativelanguage.googleapis.com/v1beta/models before
+# picking a replacement - don't assume a "-latest"/"-flash" name is fast.
+DEFAULT_MODEL = "gemini-flash-lite-latest"
 DEFAULT_EMBEDDING_MODEL = "models/gemini-embedding-001"
 REQUEST_TIMEOUT_SECONDS = 20
 
@@ -63,7 +76,17 @@ class GeminiProvider(LLMProvider):
             text = response.text
             parsed = json.loads(text) if response_schema is not None else None
             return LLMResponse(text=text, parsed=parsed, model=self._model_name, is_mock=False)
-        except Exception:
+        except Exception as exc:
+            # This used to be silent, which is why a live model-alias
+            # regression (see DEFAULT_MODEL comment above) went undiagnosed
+            # until traced by hand - always log what actually failed here,
+            # even though the fallback below may still recover the request.
+            logger.warning(
+                "gemini_generate_failed_falling_back",
+                error=repr(exc),
+                model=self._model_name,
+                has_fallback=self._fallback is not None,
+            )
             if self._fallback is not None:
                 return await self._fallback.generate(
                     system_prompt=system_prompt,

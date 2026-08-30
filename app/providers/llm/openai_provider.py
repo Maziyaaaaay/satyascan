@@ -33,6 +33,13 @@ class OpenAIProvider(LLMProvider):
         kwargs: dict = {}
         if response_schema is not None:
             kwargs["response_format"] = {"type": "json_object"}
+            # OpenAI rejects response_format=json_object with a 400 unless
+            # the literal word "json" appears somewhere in the messages -
+            # confirmed live ("'messages' must contain the word 'json'...").
+            # Callers' prompts (see app/agents/prompts/) aren't written
+            # with OpenAI's API in mind, so this can't rely on them - append
+            # the instruction here instead of at every call site.
+            system_prompt = f"{system_prompt}\n\nRespond with valid JSON only."
 
         completion = await client.chat.completions.create(
             model=self._model_name,
