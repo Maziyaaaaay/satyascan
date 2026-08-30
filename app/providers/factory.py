@@ -93,6 +93,15 @@ def get_translation_provider() -> TranslationProvider:
 @lru_cache
 def get_speech_to_text_provider() -> SpeechToTextProvider:
     settings = get_settings()
+    # Prefers Gemini over OpenAI Whisper: it reuses the same key already
+    # required for the rest of the pipeline instead of needing separate
+    # OpenAI billing (see GeminiSpeechToTextProvider's docstring) - Whisper
+    # stays available as a fallback for a GEMINI_API_KEY-less setup.
+    if settings.gemini_api_key:
+        from app.providers.speech_to_text.gemini_stt import GeminiSpeechToTextProvider
+
+        return GeminiSpeechToTextProvider(api_key=settings.gemini_api_key)
+
     if settings.openai_api_key:
         from app.providers.speech_to_text.openai_whisper import OpenAIWhisperProvider
 

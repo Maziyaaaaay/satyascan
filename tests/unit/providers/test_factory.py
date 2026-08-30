@@ -111,6 +111,31 @@ def test_openai_key_selects_real_whisper_provider(monkeypatch):
     assert isinstance(get_speech_to_text_provider(), OpenAIWhisperProvider)
 
 
+def test_gemini_key_selects_gemini_speech_to_text_provider(monkeypatch):
+    from app.providers.speech_to_text.gemini_stt import GeminiSpeechToTextProvider
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    get_settings.cache_clear()
+    reset_providers_for_tests()
+
+    assert isinstance(get_speech_to_text_provider(), GeminiSpeechToTextProvider)
+
+
+def test_gemini_key_takes_priority_over_openai_for_speech_to_text(monkeypatch):
+    # Gemini reuses the key already required elsewhere in the pipeline
+    # instead of needing separate OpenAI billing - see
+    # GeminiSpeechToTextProvider's docstring - so it should win when both
+    # are configured.
+    from app.providers.speech_to_text.gemini_stt import GeminiSpeechToTextProvider
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    get_settings.cache_clear()
+    reset_providers_for_tests()
+
+    assert isinstance(get_speech_to_text_provider(), GeminiSpeechToTextProvider)
+
+
 def test_serper_key_selects_real_web_search_provider(monkeypatch):
     from app.providers.web_search.serper import SerperWebSearchProvider
 

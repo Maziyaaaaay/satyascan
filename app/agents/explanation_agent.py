@@ -8,7 +8,7 @@ from app.providers.bundle import Providers
 
 SYSTEM_PROMPT_TEMPLATE = load_prompt("explanation_agent") + "\n\nRequested language: {language_name}"
 
-_LANGUAGE_NAMES = {Language.en: "English", Language.ml: "Malayalam"}
+_LANGUAGE_NAMES = {Language.en: "English", Language.ml: "Malayalam", Language.hi: "Hindi", Language.ta: "Tamil"}
 
 
 class _ExplanationSchema(BaseModel):
@@ -36,13 +36,16 @@ async def run(state: PipelineState, providers: Providers) -> PipelineState:
     parsed = _ExplanationSchema.model_validate(response.parsed)
     text = parsed.explanation
 
-    if target_language == Language.ml:
+    if target_language != Language.en:
+        # Safety net for any non-English target (ml/hi/ta): the LLM is
+        # asked to answer in that language via the system prompt above, but
+        # isn't guaranteed to - confirm and correct rather than trust it.
         detected = await providers.translation.detect_language(text)
         state.provider_calls.append(
             ProviderCallRecord(provider=ProviderName.google_translate, endpoint="detect_language")
         )
-        if detected != "ml":
-            text = await providers.translation.translate(text, target_language="ml")
+        if detected != target_language.value:
+            text = await providers.translation.translate(text, target_language=target_language.value)
             state.provider_calls.append(
                 ProviderCallRecord(provider=ProviderName.google_translate, endpoint="translate")
             )

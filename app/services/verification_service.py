@@ -9,7 +9,15 @@ from app.agents.pipeline import run_pipeline
 from app.agents.state import PipelineState
 from app.logging_conf import get_logger
 from app.models.api_log import APILog
-from app.models.enums import Channel, EvidenceType, Language, MessageDirection, ProviderName, VerificationStatus
+from app.models.enums import (
+    Channel,
+    EvidenceType,
+    Language,
+    MessageDirection,
+    ProviderName,
+    SourceMediaType,
+    VerificationStatus,
+)
 from app.models.evidence import Evidence
 from app.models.message import EXCERPT_MAX_LEN, Message
 from app.models.mixins import utcnow
@@ -34,6 +42,7 @@ async def process_incoming(
     image_bytes: Optional[bytes] = None,
     external_message_id: Optional[str] = None,
     preferred_language: Optional[Language] = None,
+    source_media_type: SourceMediaType = SourceMediaType.text,
 ) -> Verification:
     """Single entrypoint for turning an inbound message (from any client)
     into a completed Verification. The WhatsApp webhook and the local
@@ -48,7 +57,10 @@ async def process_incoming(
     user, _ = await get_or_create_user(db, channel, external_user_id, preferred_language)
 
     verification = Verification(
-        user_id=user.id, has_image=image_bytes is not None, status=VerificationStatus.processing
+        user_id=user.id,
+        has_image=image_bytes is not None,
+        status=VerificationStatus.processing,
+        source_media_type=source_media_type,
     )
     db.add(verification)
     await db.flush()

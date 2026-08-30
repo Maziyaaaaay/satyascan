@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.db.base import get_session_factory
 from app.db.session import get_db
 from app.logging_conf import get_logger
-from app.models.enums import Channel, Language
+from app.models.enums import Channel, Language, SourceMediaType
 from app.models.image import Image
 from app.models.verification import Verification
 from app.models.webhook_event import WebhookEvent
@@ -22,9 +22,9 @@ from app.services.rate_limit_service import RateLimitExceeded
 router = APIRouter()
 logger = get_logger(__name__)
 
-# Only en/ml are supported end-to-end (see app/models/enums.py Language) -
+# en/ml/hi/ta are supported end-to-end (see app/models/enums.py Language) -
 # any other detected language falls back to English rather than erroring.
-_DETECTED_LANGUAGE_MAP = {"ml": Language.ml, "en": Language.en}
+_DETECTED_LANGUAGE_MAP = {"ml": Language.ml, "en": Language.en, "hi": Language.hi, "ta": Language.ta}
 
 _WELCOME_TEXT = {
     Language.en: (
@@ -35,6 +35,14 @@ _WELCOME_TEXT = {
         "ഹായ്! ഞാൻ സത്യസ്‌കാൻ ആണ്. നിങ്ങൾക്ക് പരിശോധിക്കേണ്ട സന്ദേശം, ചിത്രം, "
         "അല്ലെങ്കിൽ വീഡിയോ എനിക്ക് ഫോർവേഡ് ചെയ്യൂ, ഞാൻ അത് പരിശോധിക്കാം."
     ),
+    Language.hi: (
+        "नमस्ते! मैं सत्यस्कैन हूं। जिस संदेश, तस्वीर, या वीडियो की जांच करवानी है, "
+        "वह मुझे फॉरवर्ड करें, मैं उसकी जांच करूंगा।"
+    ),
+    Language.ta: (
+        "வணக்கம்! நான் சத்யஸ்கேன். நீங்கள் சரிபார்க்க விரும்பும் செய்தி, படம் அல்லது "
+        "வீடியோவை எனக்கு அனுப்பவும், நான் அதை பரிசோதிக்கிறேன்."
+    ),
 }
 
 _HOW_IT_WORKS_TEXT = {
@@ -44,7 +52,7 @@ _HOW_IT_WORKS_TEXT = {
         "2. I check it against live web search, published fact-checks, and "
         "(for images/video) AI-generation and content-provenance signals.\n"
         "3. You get a verdict, a confidence score, and a plain-language "
-        "explanation - in English or Malayalam."
+        "explanation - in English, Malayalam, Hindi, or Tamil."
     ),
     Language.ml: (
         "*സത്യസ്‌കാൻ എങ്ങനെ പ്രവർത്തിക്കുന്നു:*\n"
@@ -52,18 +60,38 @@ _HOW_IT_WORKS_TEXT = {
         "2. ലൈവ് വെബ് സെർച്ച്, പ്രസിദ്ധീകരിച്ച ഫാക്ട്-ചെക്കുകൾ, കൂടാതെ "
         "(ചിത്രം/വീഡിയോയ്ക്ക്) AI-നിർമ്മാണ, ഉറവിട സൂചനകൾ എന്നിവ ഉപയോഗിച്ച് ഞാൻ ഇത് പരിശോധിക്കും.\n"
         "3. നിങ്ങൾക്ക് ഒരു വിധി, ഒരു വിശ്വാസ്യതാ സ്‌കോർ, ലളിതമായ ഒരു വിശദീകരണം എന്നിവ ലഭിക്കും - "
-        "ഇംഗ്ലീഷിലോ മലയാളത്തിലോ."
+        "ഇംഗ്ലീഷിലോ മലയാളത്തിലോ ഹിന്ദിയിലോ തമിഴിലോ."
+    ),
+    Language.hi: (
+        "*सत्यस्कैन कैसे काम करता है:*\n"
+        "1. संदिग्ध संदेश, तस्वीर, या वीडियो यहां फॉरवर्ड करें।\n"
+        "2. मैं इसे लाइव वेब सर्च, प्रकाशित फैक्ट-चेक, और (तस्वीरों/वीडियो के लिए) "
+        "AI-जनन और सामग्री-उत्पत्ति संकेतों के आधार पर जांचता हूं।\n"
+        "3. आपको एक फैसला, एक विश्वास स्कोर, और सरल भाषा में स्पष्टीकरण मिलेगा - "
+        "अंग्रेज़ी, मलयालम, हिंदी या तमिल में।"
+    ),
+    Language.ta: (
+        "*சத்யஸ்கேன் எப்படி செயல்படுகிறது:*\n"
+        "1. சந்தேகத்திற்குரிய செய்தி, படம் அல்லது வீடியோவை இங்கே அனுப்பவும்.\n"
+        "2. நான் இதை நேரடி வலைத் தேடல், வெளியிடப்பட்ட உண்மைச் சரிபார்ப்புகள் மற்றும் "
+        "(படங்கள்/வீடியோக்களுக்கு) AI-உருவாக்கம் மற்றும் உள்ளடக்க-மூல அறிகுறிகளுடன் சரிபார்க்கிறேன்.\n"
+        "3. உங்களுக்கு ஒரு தீர்ப்பு, நம்பகத்தன்மை மதிப்பெண் மற்றும் எளிய விளக்கம் கிடைக்கும் - "
+        "ஆங்கிலம், மலையாளம், இந்தி அல்லது தமிழில்."
     ),
 }
 
 _BUTTON_LABELS = {
     Language.en: {"check_another": "🔁 Check another", "how_it_works": "❔ How it works"},
     Language.ml: {"check_another": "🔁 വീണ്ടും പരിശോധിക്കൂ", "how_it_works": "❔ എങ്ങനെ പ്രവർത്തിക്കുന്നു"},
+    Language.hi: {"check_another": "🔁 दूसरा जांचें", "how_it_works": "❔ यह कैसे काम करता है"},
+    Language.ta: {"check_another": "🔁 மற்றொன்றைச் சரிபார்க்கவும்", "how_it_works": "❔ இது எப்படி வேலை செய்கிறது"},
 }
 
 _CHECK_ANOTHER_PROMPT = {
     Language.en: "Sure - forward me the claim, image, or video you'd like checked.",
     Language.ml: "തീർച്ചയായും - പരിശോധിക്കേണ്ട അവകാശവാദം, ചിത്രം, അല്ലെങ്കിൽ വീഡിയോ ഫോർവേഡ് ചെയ്യൂ.",
+    Language.hi: "ज़रूर - जो दावा, तस्वीर, या वीडियो जांचना है वह मुझे फॉरवर्ड करें।",
+    Language.ta: "நிச்சயமாக - சரிபார்க்க வேண்டிய கூற்று, படம் அல்லது வீடியோவை எனக்கு அனுப்பவும்.",
 }
 
 # Last-resort reply when the verification pipeline itself throws (e.g. every
@@ -75,6 +103,8 @@ _CHECK_ANOTHER_PROMPT = {
 _PROCESSING_ERROR_TEXT = {
     Language.en: "Sorry, I ran into a problem checking that. Please try again in a moment.",
     Language.ml: "ക്ഷമിക്കണം, അത് പരിശോധിക്കുന്നതിൽ ഒരു പ്രശ്നമുണ്ടായി. ദയവായി അല്പസമയത്തിന് ശേഷം വീണ്ടും ശ്രമിക്കൂ.",
+    Language.hi: "क्षमा करें, उसकी जांच करने में एक समस्या आई। कृपया कुछ देर बाद फिर से कोशिश करें।",
+    Language.ta: "மன்னிக்கவும், அதை சரிபார்க்கும்போது ஒரு சிக்கல் ஏற்பட்டது. சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும்.",
 }
 
 
@@ -141,6 +171,7 @@ async def _build_reply_text(db: AsyncSession, verification: Verification, langua
         claim_text=verification.claim_text,
         explanation_text=verification.explanation_text,
         image_lines=image_lines,
+        source_media_type=verification.source_media_type,
     )
 
 
@@ -254,10 +285,12 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
 
     text: Optional[str] = None
     image_bytes: Optional[bytes] = None
+    source_media_type = SourceMediaType.text
 
     if message_type == "text":
         text = (message.get("text") or {}).get("body")
     elif message_type == "image":
+        source_media_type = SourceMediaType.photo
         image_field = message.get("image") or {}
         media_id = image_field.get("id")
         if media_id:
@@ -267,12 +300,14 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
         # WhatsApp voice notes and forwarded audio files both arrive as
         # type "audio" (Cloud API has no separate "voice" type - "voice" is
         # kept here only in case that ever changes upstream).
+        source_media_type = SourceMediaType.audio
         audio_field = message.get("audio") or message.get("voice") or {}
         media_id = audio_field.get("id")
         if media_id:
             audio_bytes = await providers.whatsapp.download_media(media_id)
             text = await providers.speech_to_text.transcribe(audio_bytes, mime_type=audio_field.get("mime_type"))
     elif message_type == "video":
+        source_media_type = SourceMediaType.video
         video_field = message.get("video") or {}
         media_id = video_field.get("id")
         if media_id:
@@ -282,7 +317,12 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
             # search), and the audio track feeds the existing speech-to-text
             # pipeline, same as a voice note - if ffmpeg can't decode it,
             # this degrades to just the caption rather than dropping the
-            # message.
+            # message. source_media_type=video (set above) is what keeps
+            # the reply from presenting this frame as if it were a plain
+            # photo (see report_formatting.build_verdict_report) - the
+            # pipeline itself treats it identically to a photo, which is
+            # correct: it's still an image that deserves the same
+            # authenticity checks, just labeled differently in the reply.
             image_bytes, video_audio_bytes = await video_processing.extract_frame_and_audio(video_bytes)
             transcript = None
             if video_audio_bytes:
@@ -301,6 +341,7 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
             image_bytes=image_bytes,
             external_message_id=message_id,
             preferred_language=preferred_language,
+            source_media_type=source_media_type,
         )
     except RateLimitExceeded:
         await providers.whatsapp.send_text_message(

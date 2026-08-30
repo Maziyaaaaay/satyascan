@@ -25,3 +25,25 @@ async def test_malayalam_explanation_is_translated(base_state, providers):
     result = await explanation_agent.run(base_state, providers)
     assert result.explanation.language == Language.ml
     assert any("ഀ" <= ch <= "ൿ" for ch in result.explanation.text)
+
+
+@pytest.mark.asyncio
+async def test_hindi_explanation_is_translated(base_state, providers):
+    base_state.language_hint = Language.hi
+    base_state.reasoning = ReasoningResult(verdict=Verdict.false, rationale="no supporting evidence", certainty=0.8)
+    base_state.confidence = ConfidenceResult(score=0.8, label=ConfidenceLabel.high)
+
+    result = await explanation_agent.run(base_state, providers)
+    assert result.explanation.language == Language.hi
+    assert any("ऀ" <= ch <= "ॿ" for ch in result.explanation.text)
+
+
+@pytest.mark.asyncio
+async def test_tamil_explanation_is_translated(base_state, providers):
+    base_state.language_hint = Language.ta
+    base_state.reasoning = ReasoningResult(verdict=Verdict.false, rationale="no supporting evidence", certainty=0.8)
+    base_state.confidence = ConfidenceResult(score=0.8, label=ConfidenceLabel.high)
+
+    result = await explanation_agent.run(base_state, providers)
+    assert result.explanation.language == Language.ta
+    assert any("஀" <= ch <= "௿" for ch in result.explanation.text)

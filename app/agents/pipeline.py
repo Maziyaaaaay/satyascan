@@ -79,7 +79,11 @@ def _merge_partial_states(state: PipelineState, partials: List[PipelineState]) -
 
 async def _short_circuit(state: PipelineState, providers: Providers) -> PipelineState:
     text = _CHITCHAT_REPLY if state.intent.intent_type == IntentType.chitchat else _UNCLEAR_REPLY
-    if state.language_hint == Language.ml:
-        text = await providers.translation.translate(text, target_language="ml")
+    if state.language_hint != Language.en:
+        # Was hardcoded to only translate for Malayalam - silently left
+        # Hindi/Tamil users with an English reply here (the one path in the
+        # pipeline this generalization from explanation_agent.py hadn't
+        # reached yet).
+        text = await providers.translation.translate(text, target_language=state.language_hint.value)
     state.explanation = ExplanationResult(text=text, language=state.language_hint)
     return state
