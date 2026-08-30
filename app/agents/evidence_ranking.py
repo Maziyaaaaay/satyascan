@@ -85,6 +85,19 @@ async def run(state: PipelineState, providers: Providers) -> PipelineState:
     ]
     await providers.vectorstore.upsert(collection, items)
     matches = await providers.vectorstore.query(collection, query_embedding, top_k=len(evidence_texts))
+    # This collection is write-once/query-once - nothing ever reads it again
+    # after this point, but ChromaStore is *persistent* (PersistentClient),
+    # so every verification left a permanent orphaned collection on disk
+    # forever until this. Confirmed live as the actual cause of a production
+    # outage ("sqlite3.OperationalError: database or disk is full") on the
+    # small persistent volume backing Railway's deployment - not a one-off,
+    # this ran unbounded since the collection-per-verification pattern was
+    # introduced. Best-effort: a cleanup failure must not fail the
+    # verification that already has its ranked evidence in hand.
+    try:
+        await providers.vectorstore.delete_collection(collection)
+    except Exception:
+        pass
 
     ranked = []
     for rank, match in enumerate(matches, start=1):

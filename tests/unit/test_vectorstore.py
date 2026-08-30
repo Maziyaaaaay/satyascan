@@ -48,3 +48,24 @@ async def test_upsert_with_empty_list_is_a_noop(store):
     await store.upsert("evidence", [])
     matches = await store.query("evidence", embedding=[1.0, 0.0], top_k=5)
     assert matches == []
+
+
+@pytest.mark.asyncio
+async def test_delete_collection_removes_it(store):
+    # Regression test for a real production outage: evidence_ranking.py
+    # creates one persistent collection per verification and never reused
+    # it again after querying, so it must be deleted or it accumulates on
+    # disk forever (confirmed live as the cause of a
+    # "database or disk is full" crash).
+    await store.upsert("evidence", [VectorStoreItem(id="a", text="x", embedding=[1.0, 0.0])])
+    assert await store.query("evidence", embedding=[1.0, 0.0], top_k=5)
+
+    await store.delete_collection("evidence")
+
+    matches = await store.query("evidence", embedding=[1.0, 0.0], top_k=5)
+    assert matches == []
+
+
+@pytest.mark.asyncio
+async def test_delete_collection_on_nonexistent_collection_does_not_raise(store):
+    await store.delete_collection("never-created")
