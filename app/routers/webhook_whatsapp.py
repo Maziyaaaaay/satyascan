@@ -86,6 +86,17 @@ _IMAGE_VERDICT_TEXT = {
     },
 }
 
+# Last-resort reply when the verification pipeline itself throws (e.g. every
+# configured LLM provider failing) - without this, an unhandled exception
+# here means the user gets total silence instead of any reply at all, since
+# nothing else in _handle_message sends a message after this point on
+# failure. See app/providers/llm/gemini.py's DEFAULT_MODEL comment for a
+# real incident this was added after.
+_PROCESSING_ERROR_TEXT = {
+    Language.en: "Sorry, I ran into a problem checking that. Please try again in a moment.",
+    Language.ml: "ക്ഷമിക്കണം, അത് പരിശോധിക്കുന്നതിൽ ഒരു പ്രശ്നമുണ്ടായി. ദയവായി അല്പസമയത്തിന് ശേഷം വീണ്ടും ശ്രമിക്കൂ.",
+}
+
 
 def _verdict_label(verdict: Optional[Verdict], confidence_label: Optional[ConfidenceLabel], language: Language) -> str:
     if verdict is None:
@@ -278,6 +289,14 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
         await providers.whatsapp.send_text_message(
             from_number, "You're sending messages too quickly - please wait a moment and try again."
         )
+        return
+    except Exception:
+        # Every configured provider failing (or any other unhandled
+        # pipeline error) must not mean the user gets silence - log it with
+        # a full traceback for diagnosis and still send *something* back.
+        logger.exception("verification_pipeline_failed", channel=Channel.whatsapp.value, from_number=from_number)
+        error_language = preferred_language or Language.en
+        await providers.whatsapp.send_text_message(from_number, _PROCESSING_ERROR_TEXT[error_language])
         return
 
     if message_id:
