@@ -29,14 +29,21 @@ future you) can pick up without re-deriving everything below.
 
 - Text claim verification via WhatsApp — full 8-agent pipeline, real
   providers (Gemini, Google Fact Check, Google Vision, Google Translate,
-  Sightengine).
-- Reply format: `Verdict: TRUE/FALSE/LIKELY TRUE/LIKELY FALSE/MISLEADING/
-  UNVERIFIABLE/SATIRE`, `Confidence: XX/100`, `Summary:` — not raw LLM
-  prose. Image messages also get an `Image check:` line (AI-generated vs
-  real photo).
-- Auto language detection (English/Malayalam) from the inbound WhatsApp
-  message — replies come back in the same language. (Only en/ml
-  supported — see `app/models/enums.py` `Language` enum.)
+  Sightengine, C2PA manifest checking via `c2pa-python`).
+- Reply is a structured WhatsApp interactive message (native quick-reply
+  buttons, "🔁 Check another" / "❔ How it works") whose body text shape
+  depends on `Verification.source_media_type` (see
+  `app/services/report_formatting.py`): a plain text claim leads with
+  "Claim:"; a photo leads with the image findings themselves (C2PA +
+  AI-detection) since there's often no caption; a video splits "From the
+  video frame" (visual authenticity) from "What was said" (the audio
+  transcript) instead of presenting it as a generic photo; audio leads
+  with "What we heard" (the transcript) so a non-technical sender can
+  confirm SatyaScan understood them correctly.
+- Auto language detection (English/Malayalam/Hindi/Tamil) from the
+  inbound WhatsApp message — replies come back in the same language (see
+  `app/models/enums.py` `Language` enum). Hindi/Tamil translations are a
+  first pass, not native-reviewed.
 - **Live web search** (Serper.dev) as evidence for claims with no
   existing fact-check article, or where the Fact Check API's results are
   topically-adjacent-but-irrelevant (see "Key architecture notes" below).
@@ -54,26 +61,42 @@ future you) can pick up without re-deriving everything below.
   gets the welcome text only; real verification starts from their next
   message. See `_handle_message` in `app/routers/webhook_whatsapp.py`.
 - **Video messages**: downloads the video, extracts a representative
-  frame via `ffmpeg` (fed into the same AI-generation-detection pipeline
-  as a photo) and the audio track (fed into speech-to-text, same as a
-  voice note) — see `app/services/video_processing.py`. Best-effort: if
-  `ffmpeg` can't decode it, falls back to just the message caption rather
-  than dropping the message. Requires `ffmpeg` on the image (added to
-  `docker/Dockerfile`) — not yet confirmed working against a real
-  WhatsApp video in production, only against mocked extraction in tests.
+  frame via `ffmpeg` (fed into the same AI-generation-detection + C2PA
+  pipeline as a photo) and the audio track (fed into speech-to-text, same
+  as a voice note) — see `app/services/video_processing.py`. Best-effort:
+  if `ffmpeg` can't decode it, falls back to just the message caption
+  rather than dropping the message. Confirmed live end-to-end against a
+  real synthesized video (frame + speech audio track) with real
+  Gemini/Sightengine/Vision keys - not just mocked tests.
+- **Audio/voice-note transcription** (including video audio tracks) is
+  live via `GeminiSpeechToTextProvider` (`app/providers/speech_to_text/
+  gemini_stt.py`) — Gemini's native audio understanding, not OpenAI
+  Whisper (see "Known gaps" below for why). Confirmed live: transcribed a
+  real spoken clip ("I heard that the minister has died, is that true?")
+  accurately in ~2s and ran it through the full pipeline correctly.
 
 ## Known gaps / deferred
 
-- **Audio/voice-note transcription (including video audio tracks) is
-  built but non-functional.** Code is deployed (OpenAI Whisper
-  integration, `app/providers/speech_to_text/`), but the
-  `OPENAI_API_KEY` has an `insufficient_quota` billing issue — confirmed
-  live, not fixed. Voice notes and video audio currently fall through
-  with "no claim found" until OpenAI billing is set up (Google AI
-  Studio-style: add a payment method at
-  platform.openai.com/settings/organization/billing). User explicitly
-  deferred this ("not now") earlier in the project. Video frame analysis
-  (AI-generation detection, via Sightengine) is unaffected by this gap.
+- **OpenAI Whisper is still wired up as a speech-to-text fallback**
+  (`app/providers/speech_to_text/openai_whisper.py`) **but selected only
+  if `GEMINI_API_KEY` is unset** (see `get_speech_to_text_provider` in
+  `app/providers/factory.py`) - Gemini is preferred specifically because
+  it reuses the key already required elsewhere instead of needing
+  separate OpenAI billing (the `OPENAI_API_KEY` account has an
+  `insufficient_quota` issue that was never resolved - this is why Gemini
+  was chosen instead, not by fixing that billing).
+- **WhatsApp number is reachable by anyone but not discoverable in
+  WhatsApp's own in-app search** - confirmed via the Graph API
+  (`GET /{phone_number_id}?fields=search_visibility` → `NON_VISIBLE`;
+  `account_mode` is `LIVE`, not the old 5-tester sandbox, so this is not
+  the earlier "only testers can message it" limitation). People need the
+  number/wa.me link/QR code; making it search-visible is tied to the
+  Meta Business Verification below.
+- **No WhatsApp Business profile picture set** - confirmed via
+  `GET /{phone_number_id}/whatsapp_business_profile` (no
+  `profile_picture_url` in the response). User is providing an image to
+  set one via the Graph API's `whatsapp_business_profile` endpoint
+  (resumable-upload → `profile_picture_handle`).
 - **Full WhatsApp "production" tier not complete**: payment method for
   business-initiated messages, and Meta Business Verification, are both
   still outstanding. Currently running on the free tier (1,000
@@ -138,9 +161,21 @@ number `1306817919170611`).
 
 - **WhatsApp**: message +91 90748 71768 directly.
 - **Simulator**: `curl -X POST https://satyascan-production.up.railway.app/simulator/message -H "Content-Type: application/json" -d '{"session_id": "test-1", "text": "your claim here"}'`
-- **Local pipeline test** (bypasses WhatsApp/Railway entirely, useful for
-  fast iteration on agent/prompt changes): see the inline Python snippets
-  used throughout this session — `build_providers()` +
-  `reset_providers_for_tests()` + `run_pipeline(PipelineState(...), providers)`.
-- **Full test suite**: `pytest` from repo root (91 tests, all mock-based,
-  no external accounts needed, runs in ~1.5s).
+- **Local pipeline test against real providers** (bypasses WhatsApp/
+  Railway entirely, useful for fast iteration on agent/prompt changes, or
+  for reproducing a bug seen in production): `build_providers()` +
+  `reset_providers_for_tests()` + call `_handle_message(msg, db, providers)`
+  directly (see `app/routers/webhook_whatsapp.py`) - **always overwrite
+  `providers.whatsapp` with a fresh `MockWhatsAppClient()` first** unless
+  you genuinely intend to send a real WhatsApp message, since
+  `build_providers()` picks the real Meta client whenever
+  `WHATSAPP_ACCESS_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID` are set (as they are
+  in this repo's `.env`) - confirmed the hard way: an early version of this
+  pattern without the mock override sent two real (rejected, 400) API
+  calls to a fake test number.
+  Note: this repo's local dev venv is Python 3.9, which can't import
+  `c2pa-python` (needs 3.10+) - use `uv python install 3.11` +
+  `uv venv --python 3.11 /tmp/some-venv` + `uv pip install ".[real,dev]"`
+  to reproduce anything C2PA-related against a real environment.
+- **Full test suite**: `pytest` from repo root (129 tests, all mock-based,
+  no external accounts needed, runs in ~2s).

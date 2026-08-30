@@ -6,7 +6,7 @@ from sqlalchemy import Boolean, DateTime, Enum as SAEnum, Float, ForeignKey, Int
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import GUID, Base
-from app.models.enums import ConfidenceLabel, IntentType, Language, Verdict, VerificationStatus
+from app.models.enums import ConfidenceLabel, IntentType, Language, SourceMediaType, Verdict, VerificationStatus
 from app.models.mixins import TimestampMixin, UUIDPKMixin
 
 if TYPE_CHECKING:
@@ -50,6 +50,11 @@ class Verification(Base, UUIDPKMixin, TimestampMixin):
         nullable=False,
     )
     has_image: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    source_media_type: Mapped[SourceMediaType] = mapped_column(
+        SAEnum(SourceMediaType, native_enum=False, length=16),
+        default=SourceMediaType.text,
+        nullable=False,
+    )
     processing_time_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 

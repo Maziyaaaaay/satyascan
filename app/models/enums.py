@@ -9,6 +9,21 @@ class Channel(str, enum.Enum):
 class Language(str, enum.Enum):
     en = "en"
     ml = "ml"
+    hi = "hi"
+    ta = "ta"
+
+
+class SourceMediaType(str, enum.Enum):
+    """What kind of WhatsApp message a Verification originated from - drives
+    which reply template report_formatting picks (see app/services/
+    report_formatting.py). Distinct from has_image: a video's extracted
+    frame sets has_image too, but should be labeled "from the video frame"
+    rather than presented as if the user sent a plain photo."""
+
+    text = "text"
+    photo = "photo"
+    video = "video"
+    audio = "audio"
 
 
 class IntentType(str, enum.Enum):

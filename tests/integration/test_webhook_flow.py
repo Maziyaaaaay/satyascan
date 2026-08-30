@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.config import get_settings
 from app.db.base import get_session_factory
+from app.models.enums import SourceMediaType
 from app.models.verification import Verification
 
 
@@ -232,6 +233,7 @@ async def test_inbound_text_message_creates_verification_and_sends_reply(app_cli
         verifications = result.scalars().all()
     assert len(verifications) == 1
     assert verifications[0].explanation_text
+    assert verifications[0].source_media_type == SourceMediaType.text
 
     assert len(providers.whatsapp.sent_messages) == 2
     assert providers.whatsapp.sent_messages[-1]["to"] == from_number
@@ -260,8 +262,14 @@ async def test_inbound_audio_message_is_transcribed_and_verified(app_client):
     # transcript, which should have been run through the pipeline like any
     # typed claim - not silently dropped as an empty message.
     assert verifications[0].claim_text
+    assert verifications[0].source_media_type == SourceMediaType.audio
 
     assert len(providers.whatsapp.sent_messages) == 2
+    reply_body = providers.whatsapp.sent_messages[-1]["body"]
+    # An audio message's reply must lead with the transcript, not a generic
+    # "Claim:" line as if it were typed text.
+    assert "What we heard" in reply_body
+    assert "Claim:" not in reply_body
     assert providers.whatsapp.read_receipts == ["wamid.PRIME892", "wamid.AUDIO123"]
 
 
@@ -291,6 +299,15 @@ async def test_inbound_video_with_extraction_uses_frame_and_transcribed_audio(ap
     # LLM's claim-extraction step, so just check it ran on non-empty input).
     assert verifications[0].has_image is True
     assert verifications[0].claim_text
+    # This is the field the video-vs-photo report labeling actually keys
+    # off (see report_formatting.build_verdict_report) - the exact reply
+    # wording for each source_media_type is covered directly and
+    # deterministically in tests/unit/services/test_report_formatting.py,
+    # since the mock LLM's hash-derived intent classification can (rarely,
+    # depending on the exact input) take the pipeline's chitchat/unclear
+    # short-circuit instead of a full verdict, which would make a reply-text
+    # assertion here flaky.
+    assert verifications[0].source_media_type == SourceMediaType.video
 
     assert len(providers.whatsapp.sent_messages) == 2
     assert providers.whatsapp.read_receipts == ["wamid.PRIME896", "wamid.VIDEO123"]

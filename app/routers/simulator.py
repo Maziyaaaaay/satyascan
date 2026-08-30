@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
 from app.logging_conf import get_logger
-from app.models.enums import Channel, Language
+from app.models.enums import Channel, Language, SourceMediaType
 from app.models.evidence import Evidence
 from app.models.image import Image
 from app.providers.bundle import Providers, build_providers
@@ -79,6 +79,7 @@ async def simulator_message(
             text=body.text,
             image_bytes=image_bytes,
             preferred_language=body.language,
+            source_media_type=SourceMediaType.photo if image_bytes else SourceMediaType.text,
         )
     except RateLimitExceeded:
         return SimulatorMessageResponse(

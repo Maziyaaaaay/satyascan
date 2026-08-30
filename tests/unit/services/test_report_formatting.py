@@ -1,4 +1,4 @@
-from app.models.enums import ConfidenceLabel, Language, Verdict
+from app.models.enums import ConfidenceLabel, Language, SourceMediaType, Verdict
 from app.services import report_formatting
 
 
@@ -69,3 +69,79 @@ def test_perceptual_image_line_thresholds():
     assert "real" in report_formatting.perceptual_image_line(0.1, Language.en)
     assert "Could not confidently" in report_formatting.perceptual_image_line(0.45, Language.en)
     assert "Could not confidently" in report_formatting.perceptual_image_line(None, Language.en)
+
+
+def test_hindi_and_tamil_use_their_own_labels():
+    hi = report_formatting.build_verdict_report(
+        language=Language.hi,
+        verdict=Verdict.true,
+        confidence_score=0.8,
+        confidence_label=ConfidenceLabel.high,
+        claim_text="एक दावा",
+        explanation_text="पुष्टि हो गई।",
+        image_lines=None,
+    )
+    assert "सत्यस्कैन" in hi and "सही" in hi
+
+    ta = report_formatting.build_verdict_report(
+        language=Language.ta,
+        verdict=Verdict.true,
+        confidence_score=0.8,
+        confidence_label=ConfidenceLabel.high,
+        claim_text="ஒரு கூற்று",
+        explanation_text="உறுதிப்படுத்தப்பட்டது.",
+        image_lines=None,
+    )
+    assert "சத்யஸ்கேன்" in ta and "உண்மை" in ta
+
+
+def test_photo_report_leads_with_image_findings_before_claim():
+    report = report_formatting.build_verdict_report(
+        language=Language.en,
+        verdict=Verdict.unverifiable,
+        confidence_score=0.7,
+        confidence_label=ConfidenceLabel.medium,
+        claim_text=None,
+        explanation_text="No caption or claim to check.",
+        image_lines=["This image appears to be a real, unedited photo."],
+        source_media_type=SourceMediaType.photo,
+    )
+    assert report.index("Image check") < report.index("What we found")
+    # A photo with no caption must not claim to have found a "Claim:" line.
+    assert "Claim:" not in report
+
+
+def test_video_report_splits_frame_and_spoken_claim():
+    report = report_formatting.build_verdict_report(
+        language=Language.en,
+        verdict=Verdict.false,
+        confidence_score=0.88,
+        confidence_label=ConfidenceLabel.high,
+        claim_text="This footage shows today's flood",
+        explanation_text="This clip is from a different event.",
+        image_lines=["Likely AI-generated (81%)."],
+        source_media_type=SourceMediaType.video,
+    )
+    assert "From the video frame" in report
+    assert "What was said" in report
+    assert "This footage shows today's flood" in report
+    assert "Likely AI-generated (81%)." in report
+    # A video must never be presented as if it were a plain photo.
+    assert "Image check" not in report
+
+
+def test_audio_report_has_no_image_section_and_leads_with_transcript():
+    report = report_formatting.build_verdict_report(
+        language=Language.en,
+        verdict=Verdict.false,
+        confidence_score=0.9,
+        confidence_label=ConfidenceLabel.high,
+        claim_text="I heard that the minister has died",
+        explanation_text="No credible source reports this.",
+        image_lines=None,
+        source_media_type=SourceMediaType.audio,
+    )
+    assert "What we heard" in report
+    assert "I heard that the minister has died" in report
+    assert "Image check" not in report
+    assert "Claim:" not in report
