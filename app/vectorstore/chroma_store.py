@@ -68,3 +68,17 @@ class ChromaStore(VectorStore):
             VectorStoreMatch(id=ids[i], text=documents[i], metadata=metadatas[i] or {}, distance=distances[i])
             for i in range(len(ids))
         ]
+
+    async def delete_collection(self, collection: str) -> None:
+        def _call():
+            client = self._get_client()
+            try:
+                client.delete_collection(name=collection)
+            except Exception:
+                # Chroma raises if the collection doesn't exist (e.g. this
+                # verification had no evidence to upsert in the first
+                # place) - deleting something already-absent is a no-op as
+                # far as the caller is concerned, not a real failure.
+                pass
+
+        await asyncio.to_thread(_call)

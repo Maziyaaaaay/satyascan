@@ -57,3 +57,23 @@ async def test_image_only_message_never_embeds_an_empty_query_text(base_state, p
     query_text = embedded_texts[0][0]
     assert query_text, "query_text passed to embed() must never be empty"
     assert len(result.ranked_evidence) == 1
+
+
+@pytest.mark.asyncio
+async def test_verification_collection_is_deleted_after_ranking(base_state, providers):
+    # Regression test for a real production outage: each verification's
+    # Chroma collection is write-once/query-once and was never being
+    # deleted, so it accumulated on the persistent volume forever - this
+    # was confirmed live as the actual cause of a
+    # "sqlite3.OperationalError: database or disk is full" crash.
+    base_state.claims = [ExtractedClaim(text="orig", normalized_text="hot water cures covid")]
+    base_state.search = SearchResult(
+        fact_checks=[FactCheckResult(claim_text="hot water cures covid", rating="False", url="https://a.example/1")]
+    )
+
+    result = await evidence_ranking.run(base_state, providers)
+    assert result.ranked_evidence
+
+    collection = f"verification-{base_state.verification_id.hex}"
+    leftover = await providers.vectorstore.query(collection, embedding=[0.1] * 8, top_k=5)
+    assert leftover == [], "the per-verification collection must not survive past this agent"

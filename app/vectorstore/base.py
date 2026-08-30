@@ -29,3 +29,6 @@ class VectorStore(ABC):
 
     @abstractmethod
     async def query(self, collection: str, embedding: List[float], top_k: int = 5) -> List[VectorStoreMatch]: ...
+
+    @abstractmethod
+    async def delete_collection(self, collection: str) -> None: ...
