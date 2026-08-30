@@ -54,6 +54,32 @@ def _meta_video_message_payload(from_number: str, caption: str = "", message_id:
     }
 
 
+def _meta_interactive_button_payload(from_number: str, button_id: str, message_id: str = "wamid.BUTTON123"):
+    return {
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "messages": [
+                                {
+                                    "from": from_number,
+                                    "id": message_id,
+                                    "type": "interactive",
+                                    "interactive": {
+                                        "type": "button_reply",
+                                        "button_reply": {"id": button_id, "title": "tapped"},
+                                    },
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
+
 def _meta_audio_message_payload(from_number: str, message_id: str = "wamid.AUDIO123"):
     return {
         "entry": [
@@ -125,6 +151,64 @@ async def test_first_ever_message_gets_welcome_text_and_no_verification(app_clie
     assert len(providers.whatsapp.sent_messages) == 1
     assert "SatyaScan" in providers.whatsapp.sent_messages[0]["body"]
     assert providers.whatsapp.read_receipts == ["wamid.FIRST"]
+    # The welcome message is sent as a native interactive (quick-reply
+    # button) message, not plain text.
+    assert providers.whatsapp.sent_messages[0]["buttons"]
+
+
+@pytest.mark.asyncio
+async def test_verdict_reply_is_sent_as_interactive_buttons(app_client):
+    client, providers = app_client
+    from_number = "+911234567898"
+    priming_payload = _meta_text_message_payload(from_number, "hi", message_id="wamid.PRIME898")
+    await client.post("/webhook/whatsapp", json=priming_payload)
+
+    payload = _meta_text_message_payload(from_number, "Drinking hot water cures COVID", message_id="wamid.BTN898")
+    response = await client.post("/webhook/whatsapp", json=payload)
+    assert response.status_code == 200
+
+    reply = providers.whatsapp.sent_messages[-1]
+    assert reply["buttons"]
+    button_ids = {button["id"] for button in reply["buttons"]}
+    assert "check_another" in button_ids
+    assert "how_it_works" in button_ids
+
+
+@pytest.mark.asyncio
+async def test_how_it_works_button_reply_sends_explainer(app_client):
+    client, providers = app_client
+    from_number = "+911234567899"
+    priming_payload = _meta_text_message_payload(from_number, "hi", message_id="wamid.PRIME899")
+    await client.post("/webhook/whatsapp", json=priming_payload)
+
+    payload = _meta_interactive_button_payload(from_number, "how_it_works", message_id="wamid.HOWITWORKS")
+    response = await client.post("/webhook/whatsapp", json=payload)
+    assert response.status_code == 200
+
+    reply = providers.whatsapp.sent_messages[-1]
+    assert "How SatyaScan works" in reply["body"]
+    assert providers.whatsapp.read_receipts[-1] == "wamid.HOWITWORKS"
+
+
+@pytest.mark.asyncio
+async def test_check_another_button_reply_does_not_run_pipeline(app_client):
+    client, providers = app_client
+    from_number = "+911234567800"
+    priming_payload = _meta_text_message_payload(from_number, "hi", message_id="wamid.PRIME800")
+    await client.post("/webhook/whatsapp", json=priming_payload)
+
+    payload = _meta_interactive_button_payload(from_number, "check_another", message_id="wamid.CHECKANOTHER")
+    response = await client.post("/webhook/whatsapp", json=payload)
+    assert response.status_code == 200
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(select(Verification))
+        verifications = result.scalars().all()
+    assert verifications == []
+
+    reply = providers.whatsapp.sent_messages[-1]
+    assert "forward" in reply["body"].lower()
 
 
 @pytest.mark.asyncio

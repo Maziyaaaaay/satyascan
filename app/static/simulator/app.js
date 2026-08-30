@@ -111,6 +111,26 @@
         bubble.appendChild(ocr);
       }
 
+      if (data.c2pa_has_manifest) {
+        // Content Credentials (C2PA) - shown ahead of the perceptual badge
+        // below since a manifest is a much stronger signal than a visual
+        // guess (see app/services/c2pa_service.py).
+        const c2paBadge = document.createElement("div");
+        c2paBadge.className =
+          "ai-detection-badge " + (data.c2pa_is_ai_indicated ? "ai-detection-likely" : "ai-detection-unlikely");
+        c2paBadge.textContent = data.c2pa_is_ai_indicated
+          ? "📎 Content Credentials: AI-generated/edited" + (data.c2pa_generator ? ` (${data.c2pa_generator})` : "")
+          : "📎 Content Credentials present" + (data.c2pa_generator ? ` (${data.c2pa_generator})` : "");
+        bubble.appendChild(c2paBadge);
+
+        if (data.c2pa_summary) {
+          const c2paSummary = document.createElement("div");
+          c2paSummary.className = "result-image-summary ai-detection-reasoning";
+          c2paSummary.textContent = data.c2pa_summary;
+          bubble.appendChild(c2paSummary);
+        }
+      }
+
       if (typeof data.ai_generated_probability === "number") {
         const pct = Math.round(data.ai_generated_probability * 100);
         const likely = data.ai_generated_probability >= 0.5;

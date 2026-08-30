@@ -49,6 +49,10 @@ class SimulatorMessageResponse(BaseModel):
     image_ocr_text: Optional[str] = None
     ai_generated_probability: Optional[float] = None
     ai_generated_reasoning: Optional[str] = None
+    c2pa_has_manifest: Optional[bool] = None
+    c2pa_generator: Optional[str] = None
+    c2pa_is_ai_indicated: Optional[bool] = None
+    c2pa_summary: Optional[str] = None
 
 
 @router.get("/simulator")
@@ -95,6 +99,10 @@ async def simulator_message(
     image_ocr_text: Optional[str] = None
     ai_generated_probability: Optional[float] = None
     ai_generated_reasoning: Optional[str] = None
+    c2pa_has_manifest: Optional[bool] = None
+    c2pa_generator: Optional[str] = None
+    c2pa_is_ai_indicated: Optional[bool] = None
+    c2pa_summary: Optional[str] = None
     if verification.has_image:
         image_result = await db.execute(select(Image).where(Image.verification_id == verification.id))
         image = image_result.scalar_one_or_none()
@@ -103,6 +111,10 @@ async def simulator_message(
             image_ocr_text = image.ocr_text_excerpt
             ai_generated_probability = image.ai_generated_probability
             ai_generated_reasoning = image.ai_generated_reasoning
+            c2pa_has_manifest = image.c2pa_has_manifest
+            c2pa_generator = image.c2pa_generator
+            c2pa_is_ai_indicated = image.c2pa_is_ai_indicated
+            c2pa_summary = image.c2pa_summary
 
     return SimulatorMessageResponse(
         verdict=verification.verdict.value if verification.verdict else None,
@@ -115,4 +127,8 @@ async def simulator_message(
         image_ocr_text=image_ocr_text,
         ai_generated_probability=ai_generated_probability,
         ai_generated_reasoning=ai_generated_reasoning,
+        c2pa_has_manifest=c2pa_has_manifest,
+        c2pa_generator=c2pa_generator,
+        c2pa_is_ai_indicated=c2pa_is_ai_indicated,
+        c2pa_summary=c2pa_summary,
     )

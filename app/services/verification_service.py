@@ -84,6 +84,11 @@ async def process_incoming(
             len(state.image_analysis.reverse_matches),
             ai_generated_probability=state.image_analysis.ai_generated_probability,
             ai_generated_reasoning=state.image_analysis.ai_generated_reasoning,
+            c2pa_has_manifest=state.image_analysis.c2pa_has_manifest,
+            c2pa_generator=state.image_analysis.c2pa_generator,
+            c2pa_digital_source_type=state.image_analysis.c2pa_digital_source_type,
+            c2pa_is_ai_indicated=state.image_analysis.c2pa_is_ai_indicated,
+            c2pa_summary=state.image_analysis.c2pa_summary,
         )
 
     await _persist_pipeline_result(db, verification, state, elapsed_ms, providers)

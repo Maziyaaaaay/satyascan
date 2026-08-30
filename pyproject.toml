@@ -29,6 +29,11 @@ real = [
     "openai>=1.12,<2.0",
     "google-cloud-vision>=3.7,<4.0",
     "google-cloud-translate>=3.15,<4.0",
+    # C2PA manifest reading (app/services/c2pa_service.py). Needs Python
+    # 3.10+ (its bindings use `match` syntax) - the Docker image is 3.11 so
+    # this is fine there; app.services.c2pa_service degrades gracefully to
+    # "no manifest data" wherever this isn't installed/importable.
+    "c2pa-python>=0.9,<1.0",
 ]
 dev = [
     "pytest>=8.0,<9.0",
