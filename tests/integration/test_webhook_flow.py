@@ -270,7 +270,40 @@ async def test_inbound_audio_message_is_transcribed_and_verified(app_client):
     # "Claim:" line as if it were typed text.
     assert "What we heard" in reply_body
     assert "Claim:" not in reply_body
-    assert providers.whatsapp.read_receipts == ["wamid.PRIME892", "wamid.AUDIO123"]
+
+
+@pytest.mark.asyncio
+async def test_inbound_audio_with_empty_transcript_asks_to_repeat(app_client, monkeypatch):
+    # Regression test: silence/unintelligible audio used to proceed into
+    # the full pipeline as an empty claim, landing on the generic
+    # text-oriented "unclear" reply instead of an audio-appropriate
+    # "couldn't catch that" prompt - and running a whole pipeline pass on
+    # nothing at all.
+    client, providers = app_client
+    from_number = "+911234567895"
+    priming_payload = _meta_text_message_payload(from_number, "hi", message_id="wamid.PRIME895")
+    await client.post("/webhook/whatsapp", json=priming_payload)
+
+    async def empty_transcribe(audio_bytes, mime_type=None):
+        return ""
+
+    monkeypatch.setattr(providers.speech_to_text, "transcribe", empty_transcribe)
+
+    payload = _meta_audio_message_payload(from_number, message_id="wamid.AUDIOEMPTY")
+    response = await client.post("/webhook/whatsapp", json=payload)
+    assert response.status_code == 200
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        result = await session.execute(select(Verification))
+        verifications = result.scalars().all()
+    # No verification should have been attempted on an empty transcript.
+    assert verifications == []
+
+    assert len(providers.whatsapp.sent_messages) == 2
+    reply_body = providers.whatsapp.sent_messages[-1]["body"]
+    assert "couldn't quite catch that" in reply_body
+    assert providers.whatsapp.read_receipts[-1] == "wamid.AUDIOEMPTY"
 
 
 @pytest.mark.asyncio

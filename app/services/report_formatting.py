@@ -89,6 +89,12 @@ _SECTION_LABELS = {
         "video_frame": "🎬 *From the video frame:*",
         "said": "🗣️ *What was said:*",
         "heard": "🗣️ *What we heard:*",
+        "freshness_caveat": (
+            "📚 _This wasn't matched against a live web result - it's based on published "
+            "fact-checks and general knowledge, which can be out of date. For anything "
+            "about a current officeholder, election, or breaking event, please double-check "
+            "with a fresh source._"
+        ),
         "footer": "📎 _Forward another claim, image, or video anytime._",
     },
     Language.ml: {
@@ -100,6 +106,12 @@ _SECTION_LABELS = {
         "video_frame": "🎬 *വീഡിയോ ഫ്രെയിമിൽ നിന്ന്:*",
         "said": "🗣️ *പറഞ്ഞത്:*",
         "heard": "🗣️ *ഞങ്ങൾ കേട്ടത്:*",
+        "freshness_caveat": (
+            "📚 _ഇത് തത്സമയ വെബ് ഫലവുമായി പൊരുത്തപ്പെടുത്തിയതല്ല - പ്രസിദ്ധീകരിച്ച "
+            "ഫാക്ട്-ചെക്കുകളെയും പൊതുവിവരത്തെയും അടിസ്ഥാനമാക്കിയാണ്, ഇത് കാലഹരണപ്പെട്ടതാകാം. "
+            "നിലവിലെ ഒരു ഉദ്യോഗസ്ഥനെയോ തിരഞ്ഞെടുപ്പിനെയോ പുതിയ സംഭവത്തെയോ കുറിച്ചാണെങ്കിൽ, "
+            "ദയവായി പുതിയ ഉറവിടം ഉപയോഗിച്ച് ഒന്നുകൂടി പരിശോധിക്കൂ._"
+        ),
         "footer": "📎 _എപ്പോൾ വേണമെങ്കിലും മറ്റൊരു അവകാശവാദം, ചിത്രം, വീഡിയോ ഫോർവേഡ് ചെയ്യൂ._",
     },
     Language.hi: {
@@ -111,6 +123,11 @@ _SECTION_LABELS = {
         "video_frame": "🎬 *वीडियो फ्रेम से:*",
         "said": "🗣️ *क्या कहा गया:*",
         "heard": "🗣️ *हमने क्या सुना:*",
+        "freshness_caveat": (
+            "📚 _यह किसी लाइव वेब नतीजे से मेल नहीं खाया - यह प्रकाशित फैक्ट-चेक और सामान्य "
+            "जानकारी पर आधारित है, जो पुरानी हो सकती है। किसी मौजूदा पदाधिकारी, चुनाव, या ताज़ा "
+            "घटना के बारे में हो तो कृपया किसी नए स्रोत से दोबारा जांच लें।_"
+        ),
         "footer": "📎 _कभी भी कोई और दावा, तस्वीर या वीडियो भेजें।_",
     },
     Language.ta: {
@@ -122,6 +139,12 @@ _SECTION_LABELS = {
         "video_frame": "🎬 *வீடியோ பிரேமிலிருந்து:*",
         "said": "🗣️ *என்ன சொல்லப்பட்டது:*",
         "heard": "🗣️ *நாங்கள் கேட்டது:*",
+        "freshness_caveat": (
+            "📚 _இது நேரடி வலைத் தேடல் முடிவுடன் பொருத்தப்படவில்லை - இது வெளியிடப்பட்ட "
+            "உண்மைச் சரிபார்ப்புகள் மற்றும் பொதுவான தகவலை அடிப்படையாகக் கொண்டது, இது "
+            "காலாவதியானதாக இருக்கலாம். தற்போதைய பதவி வகிப்பவர், தேர்தல் அல்லது சமீபத்திய "
+            "நிகழ்வு பற்றியதாக இருந்தால், புதிய மூலத்துடன் மீண்டும் சரிபார்க்கவும்._"
+        ),
         "footer": "📎 _எப்போது வேண்டுமானாலும் மற்றொரு கூற்று, படம் அல்லது வீடியோவை அனுப்பவும்._",
     },
 }
@@ -178,6 +201,7 @@ def build_verdict_report(
     explanation_text: Optional[str],
     image_lines: Optional[list] = None,
     source_media_type: SourceMediaType = SourceMediaType.text,
+    is_live_search_confirmed: bool = False,
 ) -> str:
     """Pure formatter: every value comes in as a primitive so this needs no
     DB session and no ORM instance - see app.routers.webhook_whatsapp for
@@ -238,6 +262,17 @@ def build_verdict_report(
 
     if explanation_text:
         lines += [labels["found"], explanation_text, ""]
+
+    # A confident TRUE/FALSE/MISLEADING verdict that leans only on the
+    # reasoning LLM's own (frozen-at-training-time) knowledge or older
+    # fact-check articles - not a live web search - can quietly go stale on
+    # exactly the claims where that matters most (who currently holds an
+    # office, an ongoing election, breaking news). UNVERIFIABLE/SATIRE
+    # already communicate their own uncertainty, so this is scoped to the
+    # verdicts that read as a confident assertion of fact. Added after a
+    # real case of the bot stating a "who is currently X" claim this way.
+    if verdict in (Verdict.true, Verdict.false, Verdict.misleading) and not is_live_search_confirmed:
+        lines += [labels["freshness_caveat"], ""]
 
     lines.append(labels["footer"])
 

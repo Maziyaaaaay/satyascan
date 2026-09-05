@@ -55,6 +55,14 @@ class Verification(Base, UUIDPKMixin, TimestampMixin):
         default=SourceMediaType.text,
         nullable=False,
     )
+    # Whether any evidence backing this verdict came from a live web search
+    # (app.providers.web_search) rather than only the reasoning LLM's own
+    # (frozen-at-training-time) knowledge or older fact-check articles. Used
+    # to show a freshness caveat on time-sensitive verdicts - see
+    # app.services.report_formatting - after a real case of the bot stating
+    # a "who currently holds office X" claim with high confidence based on
+    # the LLM's own memory, which can go stale.
+    is_live_search_confirmed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     processing_time_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 

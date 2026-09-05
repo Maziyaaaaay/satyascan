@@ -216,6 +216,7 @@ async def _persist_pipeline_result(
     if state.explanation is not None:
         verification.explanation_text = state.explanation.text
         verification.explanation_language = state.explanation.language
+    verification.is_live_search_confirmed = any(e.is_live_search for e in state.ranked_evidence)
 
     for evidence in state.ranked_evidence:
         source = None
