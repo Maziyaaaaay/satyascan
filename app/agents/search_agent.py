@@ -12,9 +12,15 @@ MAX_CLAIMS_SEARCHED = 3
 _STANCE_SYSTEM_PROMPT = load_prompt("web_search_stance")
 _STANCE_TO_RATING = {"supports": "True", "contradicts": "False"}
 
+_OFFICEHOLDER_SYSTEM_PROMPT = load_prompt("officeholder_query")
+
 
 class _StanceSchema(BaseModel):
     stance: str
+
+
+class _OfficeholderQuerySchema(BaseModel):
+    query: str
 
 
 async def run(state: PipelineState, providers: Providers) -> PipelineState:
@@ -38,7 +44,24 @@ async def run(state: PipelineState, providers: Providers) -> PipelineState:
         # search happens to surface. (Deliberately NOT using an LLM's own
         # built-in search tool for this - confirmed live that it still
         # overrides fresh results with its own stale prior on a real case.)
-        web_result = await providers.web_search.search(claims[0].normalized_text)
+        search_query = claims[0].normalized_text
+        officeholder_query = await _officeholder_search_query(providers, search_query, state)
+        if officeholder_query:
+            # A claim like "X is the current <role>" searched verbatim
+            # tends to surface X's own biography page, whose summary can
+            # bury or contradict itself about whether X still holds the
+            # role today (e.g. one line says "is the current..." while
+            # another says "served ... to [an end date]" - both about the
+            # same stale page). Searching the role generically instead
+            # ("who is the current <role>") surfaces a direct, current
+            # answer instead. Confirmed live on a real case: the verbatim
+            # claim query gave a garbled, self-contradicting summary the
+            # reasoning LLM misread as confirming a person who had
+            # actually since been replaced; the generic role query gave a
+            # clean, unambiguous, correct answer.
+            search_query = officeholder_query
+
+        web_result = await providers.web_search.search(search_query)
         if web_result is not None:
             state.provider_calls.append(ProviderCallRecord(provider=ProviderName.serper, endpoint="search"))
             rating = await _classify_stance(providers, claims[0].normalized_text, web_result.summary, state)
@@ -54,6 +77,26 @@ async def run(state: PipelineState, providers: Providers) -> PipelineState:
 
     state.search = SearchResult(fact_checks=fact_checks)
     return state
+
+
+async def _officeholder_search_query(providers: Providers, claim_text: str, state: PipelineState):
+    """Returns a generic "who currently holds <role>" search query if the
+    claim asserts a specific person currently holds a position/title/role,
+    else None. Best-effort: any failure just means "search the claim
+    verbatim, as before" - never a crash."""
+    try:
+        response = await providers.llm.generate(
+            system_prompt=_OFFICEHOLDER_SYSTEM_PROMPT,
+            user_prompt=f"Claim: {claim_text}",
+            response_schema=_OfficeholderQuerySchema,
+        )
+        state.provider_calls.append(
+            ProviderCallRecord(provider=llm_provider_name(response), endpoint="generate:officeholder_query")
+        )
+        parsed = _OfficeholderQuerySchema.model_validate(response.parsed)
+        return parsed.query.strip() or None
+    except Exception:
+        return None
 
 
 async def _classify_stance(providers: Providers, claim_text: str, web_summary: str, state: PipelineState):
