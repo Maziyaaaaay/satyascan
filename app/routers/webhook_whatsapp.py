@@ -94,6 +94,19 @@ _CHECK_ANOTHER_PROMPT = {
     Language.ta: "நிச்சயமாக - சரிபார்க்க வேண்டிய கூற்று, படம் அல்லது வீடியோவை எனக்கு அனுப்பவும்.",
 }
 
+# Sent when speech-to-text comes back empty (silence, background noise, an
+# unintelligible recording) - without this, an empty transcript used to
+# proceed into the full verification pipeline as an empty claim, landing on
+# the generic text-oriented "unclear" short-circuit reply ("Could you
+# forward the exact text or image...") - confusing wording for something
+# that was clearly an audio message, and a wasted pipeline run.
+_UNCLEAR_AUDIO_TEXT = {
+    Language.en: "Sorry, I couldn't quite catch that. Could you send the voice note again, or type it out instead?",
+    Language.ml: "ക്ഷമിക്കണം, അത് വ്യക്തമായി കേൾക്കാൻ കഴിഞ്ഞില്ല. വോയ്‌സ് നോട്ട് വീണ്ടും അയയ്ക്കാമോ, അല്ലെങ്കിൽ ടൈപ്പ് ചെയ്യാമോ?",
+    Language.hi: "क्षमा करें, वह ठीक से सुनाई नहीं दिया। कृपया वॉइस नोट दोबारा भेजें, या टाइप करके बताएं।",
+    Language.ta: "மன்னிக்கவும், அது தெளிவாகக் கேட்கவில்லை. குரல் குறிப்பை மீண்டும் அனுப்பவா, அல்லது தட்டச்சு செய்யவா?",
+}
+
 # Last-resort reply when the verification pipeline itself throws (e.g. every
 # configured LLM provider failing) - without this, an unhandled exception
 # here means the user gets total silence instead of any reply at all, since
@@ -172,6 +185,7 @@ async def _build_reply_text(db: AsyncSession, verification: Verification, langua
         explanation_text=verification.explanation_text,
         image_lines=image_lines,
         source_media_type=verification.source_media_type,
+        is_live_search_confirmed=verification.is_live_search_confirmed,
     )
 
 
@@ -306,6 +320,17 @@ async def _handle_message(message: dict, db: AsyncSession, providers: Providers)
         if media_id:
             audio_bytes = await providers.whatsapp.download_media(media_id)
             text = await providers.speech_to_text.transcribe(audio_bytes, mime_type=audio_field.get("mime_type"))
+            if not text or not text.strip():
+                # Silence, background noise, or an unintelligible recording
+                # - ask for a repeat instead of running a full pipeline on
+                # an empty claim (which used to land on the generic
+                # text-oriented "unclear" reply, confusing for a voice
+                # note) or guessing at a verdict from nothing at all.
+                if message_id:
+                    await providers.whatsapp.mark_as_read(message_id)
+                unclear_language = user.preferred_language or Language.en
+                await providers.whatsapp.send_text_message(from_number, _UNCLEAR_AUDIO_TEXT[unclear_language])
+                return
     elif message_type == "video":
         source_media_type = SourceMediaType.video
         video_field = message.get("video") or {}

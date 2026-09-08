@@ -3,4 +3,18 @@ Given a claim and a summary of current web search results about it, decide:
 - "supports" if the search results confirm the claim is true/accurate
 - "contradicts" if the search results show the claim is false/inaccurate
 - "neutral" if the results are inconclusive or don't clearly address it
+
+For a claim about who currently holds a position, title, or role (a
+minister, CEO, chief, president, etc.): only answer "supports" if the
+summary contains an explicit, recent, dated signal that this specific
+person holds it right now - a named recent event, "elected in", "sworn
+in", "since [a specific recent date]", or a clear "as of" framing. A
+general, undated biography that simply states someone "is" or "has been"
+something is not enough on its own - a page like that can stay unchanged
+for a long time after the real-world situation has actually moved on. If
+the summary names a *different* person as the current holder of the same
+role, answer "contradicts" instead. If you cannot tell whether the
+summary reflects the present-day situation, answer "neutral" rather than
+guessing "supports".
+
 Respond with just the stance - no explanation needed.

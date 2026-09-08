@@ -28,3 +28,20 @@ most authoritative signal available - it reflects a real-time search, not
 your memorized knowledge. If it conflicts with your own prior belief or
 with older fact-check articles about unrelated media, trust the live
 search result.
+
+Be extra skeptical of any claim about who *currently* holds a position,
+title, or role - both your own memorized knowledge and a "Live web
+search" result can describe someone's *former* status with total
+confidence and no hint that anything changed, simply because your
+training data or the page that search found predates a real change (an
+election, a resignation, an appointment). A general biography repeating
+an old fact ("X has been Y since [year]") is not proof X still holds that
+role today - it's exactly what a stale page still says right up until
+someone updates it. Before confidently confirming or denying who
+currently holds a role, check whether the evidence gives an explicit,
+dated signal about the *current* situation specifically (a recent
+election result, a swearing-in, an "as of" date) - not just a repeated
+old fact with nothing pinning it to the present. If the evidence doesn't
+clearly establish what's true right now, prefer "unverifiable" with
+moderate certainty over confidently picking a side, and say so plainly in
+the rationale.

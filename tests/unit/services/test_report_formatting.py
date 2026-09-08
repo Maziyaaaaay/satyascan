@@ -145,3 +145,53 @@ def test_audio_report_has_no_image_section_and_leads_with_transcript():
     assert "I heard that the minister has died" in report
     assert "Image check" not in report
     assert "Claim:" not in report
+
+
+def test_freshness_caveat_shown_for_confident_verdict_without_live_search():
+    # Regression test for a real user report: the bot stated a "who
+    # currently holds office" claim as TRUE with high confidence, based
+    # only on the reasoning LLM's own (frozen-at-training-time) knowledge -
+    # nothing here flagged that it hadn't been checked against anything
+    # live, which reads as false authority on exactly the claims most
+    # likely to have changed since training.
+    report = report_formatting.build_verdict_report(
+        language=Language.en,
+        verdict=Verdict.true,
+        confidence_score=0.92,
+        confidence_label=ConfidenceLabel.high,
+        claim_text="X is the current chief minister",
+        explanation_text="Based on available records.",
+        image_lines=None,
+        is_live_search_confirmed=False,
+    )
+    assert "out of date" in report.lower() or "fresh source" in report.lower()
+
+
+def test_freshness_caveat_omitted_when_live_search_confirmed():
+    report = report_formatting.build_verdict_report(
+        language=Language.en,
+        verdict=Verdict.true,
+        confidence_score=0.92,
+        confidence_label=ConfidenceLabel.high,
+        claim_text="X is the current chief minister",
+        explanation_text="Confirmed by a live search just now.",
+        image_lines=None,
+        is_live_search_confirmed=True,
+    )
+    assert "fresh source" not in report.lower()
+
+
+def test_freshness_caveat_omitted_for_unverifiable_verdict():
+    # UNVERIFIABLE already communicates its own uncertainty - an extra
+    # caveat there would just be noise.
+    report = report_formatting.build_verdict_report(
+        language=Language.en,
+        verdict=Verdict.unverifiable,
+        confidence_score=0.3,
+        confidence_label=ConfidenceLabel.low,
+        claim_text="Some vague claim",
+        explanation_text="Not enough information.",
+        image_lines=None,
+        is_live_search_confirmed=False,
+    )
+    assert "fresh source" not in report.lower()

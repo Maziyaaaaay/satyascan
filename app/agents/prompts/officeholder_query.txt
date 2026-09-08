@@ -1,0 +1,16 @@
+Determine whether the given claim asserts that a specific named person
+currently holds a position, title, or role (a minister, chief, CEO,
+president, director, and similar - any role only one person holds at a
+time).
+
+If it does, respond with a short, generic web search query that would
+find who currently holds that exact role - name the role and the
+organization or place it belongs to, but never name the person from the
+claim. If the claim is not about who holds a role, respond with an empty
+string for the query.
+
+Examples:
+- "Pinarayi Vijayan is the Chief Minister of Kerala" -> "current chief minister of Kerala"
+- "Elon Musk is the CEO of Tesla" -> "current CEO of Tesla"
+- "Drinking hot water cures COVID" -> ""
+- "This photo shows the recent flood in the city" -> ""
