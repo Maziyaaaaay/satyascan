@@ -30,7 +30,17 @@ def _build_user_prompt(state: PipelineState) -> str:
 
 async def run(state: PipelineState, providers: Providers) -> PipelineState:
     response = await providers.llm.generate(
-        system_prompt=SYSTEM_PROMPT, user_prompt=_build_user_prompt(state), response_schema=_ReasoningSchema
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=_build_user_prompt(state),
+        response_schema=_ReasoningSchema,
+        # The verdict itself should be as consistent as possible for the
+        # same evidence - confirmed live that the default temperature let
+        # an identical claim/evidence pair flip between a correct and an
+        # incorrect verdict from one call to the next on genuinely
+        # conflicting evidence. Rationale wording can still vary a little
+        # at this temperature; the verdict/certainty are what matter most
+        # here and benefit from low variance, not creative phrasing.
+        temperature=0.0,
     )
     state.provider_calls.append(
         ProviderCallRecord(provider=llm_provider_name(response), endpoint="generate:reasoning_agent")

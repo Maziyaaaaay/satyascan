@@ -89,6 +89,10 @@ async def _officeholder_search_query(providers: Providers, claim_text: str, stat
             system_prompt=_OFFICEHOLDER_SYSTEM_PROMPT,
             user_prompt=f"Claim: {claim_text}",
             response_schema=_OfficeholderQuerySchema,
+            # This is a narrow classification, not creative writing - low
+            # temperature so the same claim reliably gets reformulated the
+            # same way every time, rather than only sometimes.
+            temperature=0.0,
         )
         state.provider_calls.append(
             ProviderCallRecord(provider=llm_provider_name(response), endpoint="generate:officeholder_query")
@@ -112,6 +116,16 @@ async def _classify_stance(providers: Providers, claim_text: str, web_summary: s
             system_prompt=_STANCE_SYSTEM_PROMPT,
             user_prompt=f"Claim: {claim_text}\n\nWeb search summary:\n{web_summary}",
             response_schema=_StanceSchema,
+            # Same reasoning as _officeholder_search_query: a narrow
+            # classification, not creative writing - confirmed live that
+            # the default temperature let the exact same claim flip
+            # between "supports" and a more cautious read from one call to
+            # the next, which is what let a wrong, overconfident verdict
+            # through some of the time even after the query-reformulation
+            # fix (evidence itself can still be genuinely ambiguous, but
+            # this removes classification-noise as a separate source of
+            # inconsistency on top of that).
+            temperature=0.0,
         )
         state.provider_calls.append(
             ProviderCallRecord(provider=llm_provider_name(response), endpoint="generate:web_search_stance")
